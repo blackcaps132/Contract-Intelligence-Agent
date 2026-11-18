@@ -5,10 +5,6 @@ __pycache__/
 *.pyc
 *.db
 .env
+backend/.env
 chroma_db/
-.venv/
-__pycache__/
-*.pyc
-*.db
-.env
-chroma_db/
+backend/data/chroma_db/
