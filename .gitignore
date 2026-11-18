@@ -1,2 +1,14 @@
 Implementation_Plan.md
 MVP_Approach_Plan.md
+.venv/
+__pycache__/
+*.pyc
+*.db
+.env
+chroma_db/
+.venv/
+__pycache__/
+*.pyc
+*.db
+.env
+chroma_db/
