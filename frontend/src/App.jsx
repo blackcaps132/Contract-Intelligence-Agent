@@ -51,7 +51,14 @@ export default function App() {
           onSelectContract={(id) => handleNavigate('contracts')} 
         />
       )}
-      {currentRoute === 'contracts' && <ContractsPage />}
+      {currentRoute === 'contracts' && (
+        <ContractsPage 
+          onSelectContract={(contractId, tab = 'read') => {
+            console.info(`[App] Contract selected: ${contractId}, tab: ${tab}`)
+            // In Step 4, this transitions to the Contract Reader room
+          }} 
+        />
+      )}
     </div>
   )
 }
