@@ -51,16 +51,58 @@ def extract_metadata_node(state: AnalysisGraphState) -> Dict[str, Any]:
     text = state.get("raw_content", "")
     
     # 1. Effective Date
-    eff_match = re.search(r"effective\s+(?:as\s+of\s+)?([A-Za-z]+\s+\d{1,2},\s*\d{4})", text, re.IGNORECASE)
+    eff_match = re.search(
+        r"(?:effective\s+(?:as\s+of\s+)?|entered\s+into\s+(?:as\s+of\s+|on\s+)?|dated\s+(?:as\s+of\s+)?|is\s+made\s+(?:as\s+of\s+)?)"
+        r"([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?,\s*\d{4}|\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+,?\s*\d{4})",
+        text,
+        re.IGNORECASE
+    )
     effective_date = eff_match.group(1) if eff_match else "Not specified"
 
     # 2. Total Value / Budget Cap
-    val_match = re.search(r"(?:not\s+to\s+exceed|budget\s+cap|total\s+fees|annual\s+fee)[^\$]{0,50}\$([0-9,]+(?:\.\d{2})?)", text, re.IGNORECASE)
-    total_value = f"${val_match.group(1)}" if val_match else "Not capped / Time & Materials"
+    val_match = re.search(
+        r"(?:not\s+to\s+exceed|budget\s+cap|budget\s+ceiling|total\s+fees|annual\s+(?:enterprise\s+)?(?:subscription\s+)?fee|subscription\s+fee|shall\s+not\s+exceed)[^\$]{0,50}\$([0-9,]+(?:\.\d{2})?)",
+        text,
+        re.IGNORECASE
+    )
+    if val_match:
+        total_value = f"${val_match.group(1)} (Capped)"
+    elif re.search(r"\$[0-9]+(?:\.[0-9]{2})?\s*(?:/hr|per\s+hour)", text, re.IGNORECASE):
+        total_value = "Time & Materials (Hourly Rate Card)"
+    else:
+        total_value = "Not Capped / Open-Ended"
 
     # 3. Governing Law
-    gov_match = re.search(r"(?:laws\s+of\s+(?:the\s+State\s+of\s+)?|governed\s+by\s+(?:the\s+laws\s+of\s+)?)([A-Za-z\s]+?)(?:,|\.|\s+without)", text, re.IGNORECASE)
-    governing_law = gov_match.group(1).strip() if gov_match else "Unspecified"
+    governing_law = "Unspecified"
+    if re.search(r"(?:governed\s+by\s+(?:and\s+subject\s+to\s+)?(?:the\s+terms.*?of\s+)?(?:the\s+)?Master\s+Services\s+Agreement|subject\s+to\s+(?:the\s+)?MSA)", text, re.IGNORECASE):
+        governing_law = "Delaware (via Master Agreement)" if re.search(r"Delaware", text, re.IGNORECASE) else "Governed by Master Agreement (MSA)"
+    else:
+        known_jurisdictions = [
+            ("Canton of Zurich (Switzerland)", r"Zurich|Switzerland"),
+            ("State of Israel", r"Israel"),
+            ("England & Wales", r"England|Wales"),
+            ("Republic of Ireland", r"Ireland|Dublin"),
+            ("Delaware", r"\bDelaware\b"),
+            ("New York", r"\bNew York\b"),
+            ("California", r"\bCalifornia\b"),
+            ("State of Washington", r"\bState of Washington\b|\bWashington corporation\b"),
+            ("Texas", r"\bTexas\b"),
+            ("Illinois", r"\bIllinois\b")
+        ]
+        gov_match = re.search(r"(?:governing\s+law|jurisdiction|applicable\s+law|dispute)[\s\S]{0,400}", text, re.IGNORECASE)
+        found = False
+        if gov_match:
+            gov_sec = gov_match.group(0)
+            for name, pattern in known_jurisdictions:
+                if re.search(pattern, gov_sec, re.IGNORECASE):
+                    governing_law = name
+                    found = True
+                    break
+        if not found:
+            for name, pattern in known_jurisdictions:
+                if re.search(pattern, text, re.IGNORECASE):
+                    governing_law = name
+                    break
 
     # 4. Parties
     parties_match = re.search(r"between\s+([^,]+?)(?:,|\s+a\s+Delaware|\s+a\s+Washington|\s+\('Client'\))\s+and\s+([^,]+?)(?:,|\s+a\s+Delaware|\s+\('Service|\s+\('Vendor|\s+\('Agency)", text, re.IGNORECASE)
@@ -316,11 +358,20 @@ def persist_analysis_node(state: AnalysisGraphState) -> Dict[str, Any]:
         """, (checklist_score, checklist_json, risk_flags_json, metadata_json, new_status, contract_id))
         conn.commit()
 
-    exec_summary = (
-        f"Contract classified as '{state.get('metadata', {}).get('contract_type')}'. "
-        f"Mandatory Checklist Compliance: {checklist_score}. "
-        f"Flagged {len(state.get('risk_flags', []))} potential legal/commercial risk items."
-    )
+    risk_count = len(state.get('risk_flags', []))
+    contract_type = state.get('metadata', {}).get('contract_type', 'Commercial Contract')
+    if has_issues:
+        exec_summary = (
+            f"Intake review completed for {contract_type}. "
+            f"Checklist Compliance: {checklist_score}. "
+            f"Flagged {risk_count} critical risk/gap item(s) requiring remediation before contract execution."
+        )
+    else:
+        exec_summary = (
+            f"Intake review completed for {contract_type}. "
+            f"Checklist Compliance: {checklist_score}. "
+            f"All 6 corporate contracting standards are fully satisfied with zero critical exposure risks flagged. Approved for completion."
+        )
 
     return {"executive_summary": exec_summary, "status": new_status}
 

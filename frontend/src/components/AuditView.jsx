@@ -149,7 +149,7 @@ export default function AuditView({ contract, onContractUpdate, onNavigateToAmen
           className="btn-reanalyze"
           onClick={handleRunAnalysis}
           disabled={analyzing}
-          title="Re-run LangGraph analysis graph"
+          title="Re-run Audit"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="23 4 23 10 17 10" />
@@ -161,36 +161,71 @@ export default function AuditView({ contract, onContractUpdate, onNavigateToAmen
 
       {/* 2. Executive Intake Summary Card */}
       <section className="intake-card" aria-label="Executive Intake Summary">
-        <h3 className="card-section-title">Executive Intake Summary</h3>
+        <div className="intake-card-header">
+          <h3 className="card-section-title">Executive Intake Summary</h3>
+          <span className="intake-card-tag">
+            {metadata.contract_type || contract.contract_type || 'Commercial Contract'}
+          </span>
+        </div>
+
         <div className="intake-grid">
           <div className="intake-cell">
             <span className="intake-label">Parties</span>
             <span className="intake-value">
               {metadata.counterparty || contract.counterparty || 'Not specified'}
             </span>
+            <span className="intake-subtext">Commercial Counterparties</span>
           </div>
+
           <div className="intake-cell">
             <span className="intake-label">Effective Date</span>
             <span className="intake-value">
               {metadata.effective_date || 'Not specified'}
             </span>
+            <span className="intake-subtext">Execution baseline</span>
           </div>
+
           <div className="intake-cell">
-            <span className="intake-label">Total Value / NTE Cap</span>
-            <span className="intake-value">
-              {metadata.total_value || 'Not capped'}
-            </span>
+            <span className="intake-label">Total Value & Cap</span>
+            <div className="intake-badge-wrapper">
+              <span
+                className={`intake-cap-pill ${
+                  (metadata.total_value || '').includes('Capped') ||
+                  (metadata.total_value || '').startsWith('$')
+                    ? 'cap-pill-green'
+                    : (metadata.total_value || '').includes('Rate Card')
+                    ? 'cap-pill-blue'
+                    : 'cap-pill-amber'
+                }`}
+              >
+                {metadata.total_value || 'Not Capped'}
+              </span>
+            </div>
+            <span className="intake-subtext">Budgetary Governance</span>
           </div>
+
           <div className="intake-cell">
             <span className="intake-label">Governing Jurisdiction</span>
             <span className="intake-value">
               {metadata.governing_jurisdiction || 'Unspecified'}
             </span>
+            <span className="intake-subtext">Applicable Legal Venue</span>
           </div>
         </div>
+
         {contract.executive_summary && (
-          <div className="intake-summary-text">
-            <strong>Intake Summary:</strong> {contract.executive_summary}
+          <div className="intake-briefing-callout">
+            <div className="briefing-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+            </div>
+            <div className="briefing-text">
+              <strong>Counsel Intake Briefing:</strong> {contract.executive_summary}
+            </div>
           </div>
         )}
       </section>

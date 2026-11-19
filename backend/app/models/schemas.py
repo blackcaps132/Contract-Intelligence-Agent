@@ -60,6 +60,7 @@ class ContractDetailResponse(BaseModel):
     checklist_items: List[ChecklistItem] = []
     risk_flags: List[RiskFlag] = []
     metadata: ContractMetadata = ContractMetadata()
+    executive_summary: Optional[str] = None
     content: str
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

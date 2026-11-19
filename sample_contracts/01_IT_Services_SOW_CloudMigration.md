@@ -32,19 +32,19 @@ This SOW is governed by and subject to the terms and conditions of the Master Se
 
 3.1 Staffing and Hourly Rates: Service Provider shall provide qualified technical personnel at the following agreed hourly rates:
 
-• Solutions Architect: .00 per hour
+• Solutions Architect: $145.00 per hour
 
-• Senior Cloud Developer: .00 per hour
+• Senior Cloud Developer: $95.00 per hour
 
-• DevOps / CI-CD Specialist: .00 per hour
+• DevOps / CI-CD Specialist: $110.00 per hour
 
-• QA Automation Engineer: .00 per hour
+• QA Automation Engineer: $80.00 per hour
 
 3.2 No Rate Changes: The hourly rates specified above shall remain firm and fixed for the entire duration of this SOW unless modified by mutual written amendment.
 
 ## SECTION 4. BUDGET CEILING AND NOT-TO-EXCEED (NTE) CAP
 
-4.1 Budget Ceiling: The total cumulative fees payable by Client for all services and deliverables under this SOW shall not exceed ,000.00 USD ('Not-to-Exceed Budget Cap').
+4.1 Budget Ceiling: The total cumulative fees payable by Client for all services and deliverables under this SOW shall not exceed $150,000.00 USD ('Not-to-Exceed Budget Cap').
 
 4.2 Cap Enforcement: Service Provider shall not perform services nor bill hours that would cause aggregate billings to exceed the Not-to-Exceed Budget Cap without prior written approval from Client's authorized representative.
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import AuditView from '../components/AuditView'
+import ChatView from '../components/ChatView'
 import './ContractViewerPage.css'
 
 const TABS = [
@@ -9,6 +10,38 @@ const TABS = [
   { id: 'amend', label: 'Amend' },
   { id: 'history', label: 'History' },
 ]
+
+// Detects section headers in both markdown and raw legal contracts (SEC EDGAR, MSAs, SOWs)
+function detectSectionHeader(trimmed) {
+  if (!trimmed || trimmed.length < 3 || trimmed.length > 95) return null
+
+  if (trimmed.startsWith('#')) {
+    const title = trimmed.replace(/^#+\s*/, '')
+    if (title.length > 2) {
+      return {
+        title,
+        level: trimmed.startsWith('###') ? 3 : trimmed.startsWith('##') ? 2 : 1,
+      }
+    }
+  }
+
+  // Legal headings: SECTION, ARTICLE, CLAUSE (e.g. ARTICLE I DEFINITIONS, Section 2.1 Transferred IP)
+  if (/^(?:SECTION|ARTICLE|CLAUSE)\s+[\dIVXLCDM]+(?:\.[\d]+)*/i.test(trimmed)) {
+    return { title: trimmed, level: 2 }
+  }
+
+  // Numbered legal headings (e.g. 1. MANUFACTURING OUTSOURCING SERVICES, 2. COMPONENTS PURCHASING...)
+  if (/^\d+\.\s+[A-Z][A-Za-z0-9\s,/\-\(\)\'\".:;]{2,85}$/.test(trimmed)) {
+    return { title: trimmed, level: 2 }
+  }
+
+  // Major contract divisions: EXHIBIT, SCHEDULE, RECITALS, PREAMBLE
+  if (/^(?:EXHIBIT|SCHEDULE)\s+[A-Z0-9.]+/i.test(trimmed) || /^(?:RECITALS|PREAMBLE)/i.test(trimmed)) {
+    return { title: trimmed, level: 2 }
+  }
+
+  return null
+}
 
 export default function ContractViewerPage({ contractId, initialTab = 'read', onBack }) {
   const [contract, setContract] = useState(null)
@@ -31,7 +64,17 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
 
   // Section outline
   const [selectedSection, setSelectedSection] = useState('')
+  const [showScrollTop, setShowScrollTop] = useState(false)
   const readerSheetRef = useRef(null)
+
+  // Track window scrolling to toggle the "Back to Top" button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 280)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -68,14 +111,13 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
     const list = []
     lines.forEach((line, index) => {
       const trimmed = line.trim()
-      if (trimmed.startsWith('#')) {
-        const title = trimmed.replace(/^#+\s*/, '')
-        if (title.length > 2) {
-          list.push({ id: `section-${index}`, title, lineIndex: index })
-        }
-      } else if (/^(SECTION|ARTICLE)\s+[0-9IVX]+/i.test(trimmed)) {
-        const title = trimmed.slice(0, 60)
-        list.push({ id: `section-${index}`, title, lineIndex: index })
+      const detected = detectSectionHeader(trimmed)
+      if (detected) {
+        list.push({
+          id: `section-${index}`,
+          title: detected.title.slice(0, 65),
+          lineIndex: index,
+        })
       }
     })
     return list
@@ -129,6 +171,10 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
   const handleJumpToSection = (sectionId) => {
     setSelectedSection(sectionId)
     if (!sectionId) return
+    if (sectionId === '__top__') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     const el = document.getElementById(sectionId)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -262,37 +308,30 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
         return
       }
 
-      // Check for headings
-      if (trimmed.startsWith('# ')) {
+      // Check for headings (markdown or standard legal section headers)
+      const secHeader = detectSectionHeader(trimmed)
+      if (secHeader) {
         flushParagraph(index)
         flushList(index)
-        elements.push(
-          <h1 key={`h1-${index}`} id={`section-${index}`}>
-            {renderInlineMarkdown(trimmed.replace(/^#\s*/, ''), `h1-${index}`)}
-          </h1>
-        )
-        return
-      }
-
-      if (trimmed.startsWith('## ')) {
-        flushParagraph(index)
-        flushList(index)
-        elements.push(
-          <h2 key={`h2-${index}`} id={`section-${index}`}>
-            {renderInlineMarkdown(trimmed.replace(/^##\s*/, ''), `h2-${index}`)}
-          </h2>
-        )
-        return
-      }
-
-      if (trimmed.startsWith('### ')) {
-        flushParagraph(index)
-        flushList(index)
-        elements.push(
-          <h3 key={`h3-${index}`} id={`section-${index}`}>
-            {renderInlineMarkdown(trimmed.replace(/^###\s*/, ''), `h3-${index}`)}
-          </h3>
-        )
+        if (secHeader.level === 1) {
+          elements.push(
+            <h1 key={`h1-${index}`} id={`section-${index}`} className="contract-heading-1">
+              {renderInlineMarkdown(secHeader.title, `h1-${index}`)}
+            </h1>
+          )
+        } else if (secHeader.level === 2) {
+          elements.push(
+            <h2 key={`h2-${index}`} id={`section-${index}`} className="contract-heading-2">
+              {renderInlineMarkdown(secHeader.title, `h2-${index}`)}
+            </h2>
+          )
+        } else {
+          elements.push(
+            <h3 key={`h3-${index}`} id={`section-${index}`} className="contract-heading-3">
+              {renderInlineMarkdown(secHeader.title, `h3-${index}`)}
+            </h3>
+          )
+        }
         return
       }
 
@@ -429,6 +468,7 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
                 onChange={(e) => handleJumpToSection(e.target.value)}
               >
                 <option value="">Jump to section...</option>
+                <option value="__top__">↑ Top of Document</option>
                 {sections.map((sec) => (
                   <option key={sec.id} value={sec.id}>
                     {sec.title}
@@ -526,18 +566,16 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
         </div>
       )}
 
-      {/* Tab: Chat (Step 6 Shell) */}
+      {/* Tab: Chat (Step 6 Document Intelligence & Conflict Simulator) */}
       {activeTab === 'chat' && (
-        <div className="tab-placeholder screen-only-tab">
-          <div className="placeholder-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </div>
-          <h2 className="placeholder-title">Document Chat & Conflict Simulator</h2>
-          <p className="placeholder-desc">
-            Conversational RAG grounded in ChromaDB vector citations and cross-clause contradiction simulations. Ready for Step 6.
-          </p>
+        <div className="screen-only-tab">
+          <ChatView
+            contract={contract}
+            onNavigateToAmend={(instruction) => {
+              setRemediationDraft(instruction)
+              handleTabChange('amend')
+            }}
+          />
         </div>
       )}
 
@@ -581,6 +619,22 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
             Git-style commit tree, clause-level diff inspection, and 1-click rollback snapshots. Ready for Step 8.
           </p>
         </div>
+      )}
+      {/* Floating Back to Top Button */}
+      {showScrollTop && (
+        <button
+          type="button"
+          className="btn-back-to-top"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          title="Back to top"
+          aria-label="Scroll back to top"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="12" y1="19" x2="12" y2="5" />
+            <polyline points="5 12 12 5 19 12" />
+          </svg>
+          <span>Top</span>
+        </button>
       )}
     </main>
   )

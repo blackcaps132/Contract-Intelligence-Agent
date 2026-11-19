@@ -16,11 +16,11 @@ This Statement of Work for Marketing Growth Services ('SOW') is entered into on 
 
 2.1 Rate Card: Agency shall provide marketing personnel at the following billable rates:
 
-• Senior Growth Strategist: .00 per hour
+• Senior Growth Strategist: $125.00 per hour
 
-• Creative Content Designer: .00 per hour
+• Creative Content Designer: $90.00 per hour
 
-• Digital Copywriter: .00 per hour
+• Digital Copywriter: $75.00 per hour
 
 ## SECTION 3. INVOICING AND COMPENSATION
 

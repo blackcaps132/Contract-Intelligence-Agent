@@ -57,13 +57,12 @@ def parse_contract_sections(text: str) -> Dict[str, str]:
     """
     sections: Dict[str, str] = {}
     
-    # Common section header patterns
+    # Common section header patterns (handles markdown hashes, Roman numerals, standard numbered outlines)
     pattern = re.compile(
-        r"(^(?:SECTION|ARTICLE|CLAUSE)\s+[\dIVXLCDM]+[.:\s\-\–][^\n]+|"
-        r"^\d+\.\s+[A-Z][A-Za-z0-9\s,/\-\(\)]+$|"
-        r"^SCHEDULE\s+[\dIVXLCDM]+[.:\s\-\–][^\n]+|"
-        r"^EXHIBIT\s+[A-Z0-9]+[.:\s\-\–][^\n]+|"
-        r"^RECITALS|PREAMBLE)",
+        r"(^(?:#+\s*)?(?:SECTION|ARTICLE|CLAUSE)\s+[\dIVXLCDM]+(?:\.[\d]+)*[.:\s\-\–][^\n]+|"
+        r"^(?:#+\s*)?\d+\.\s+[A-Z][A-Za-z0-9\s,/\-\(\)\'\".:;]{2,85}$|"
+        r"^(?:#+\s*)?(?:SCHEDULE|EXHIBIT)\s+[A-Z0-9.]+[.:\s\-\–]?[^\n]*|"
+        r"^(?:#+\s*)?(?:RECITALS|PREAMBLE)[^\n]*)",
         re.MULTILINE | re.IGNORECASE
     )
     
@@ -73,7 +72,7 @@ def parse_contract_sections(text: str) -> Dict[str, str]:
         return {"General Provisions": text}
         
     for i, match in enumerate(matches):
-        sec_title = match.group(0).strip()
+        sec_title = re.sub(r"^#+\s*", "", match.group(0)).strip()
         start_idx = match.end()
         end_idx = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         sec_body = text[start_idx:end_idx].strip()

@@ -12,7 +12,7 @@ Provider grants Customer a non-exclusive, non-transferable enterprise subscripti
 
 ## SECTION 1. SUBSCRIPTION FEES AND BILLING
 
-1.1 Annual Fee: Customer shall pay an annual enterprise subscription fee of ,000.00 USD, payable annually in advance within Net thirty (30) days of invoice.
+1.1 Annual Fee: Customer shall pay an annual enterprise subscription fee of $75,000.00 USD, payable annually in advance within Net thirty (30) days of invoice.
 
 ## SECTION 2. SERVICE LEVEL AGREEMENT (SLA) AND UPTIME
 

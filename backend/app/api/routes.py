@@ -75,6 +75,16 @@ def get_contract(contract_id: str):
         risk_flags = json.loads(row["risk_flags_json"] or "[]")
         metadata = json.loads(row["metadata_json"] or "{}")
 
+        exec_summary = None
+        if row["checklist_score"]:
+            risk_count = len(risk_flags)
+            c_type = metadata.get("contract_type", row["contract_type"])
+            has_issues = risk_count > 0 or any(i.get("status") in ("MISSING", "AMBIGUOUS") for i in checklist_items)
+            if has_issues:
+                exec_summary = f"Intake review completed for {c_type}. Checklist Compliance: {row['checklist_score']}. Flagged {risk_count} critical risk/gap item(s) requiring remediation before contract execution."
+            else:
+                exec_summary = f"Intake review completed for {c_type}. Checklist Compliance: {row['checklist_score']}. All 6 corporate contracting standards are fully satisfied with zero critical exposure risks flagged. Approved for completion."
+
         return ContractDetailResponse(
             id=row["id"],
             title=row["title"],
@@ -86,6 +96,7 @@ def get_contract(contract_id: str):
             checklist_items=[ChecklistItem(**item) for item in checklist_items],
             risk_flags=[RiskFlag(**item) for item in risk_flags],
             metadata=ContractMetadata(**metadata) if metadata else ContractMetadata(),
+            executive_summary=exec_summary,
             content=row["full_content"],
             created_at=row["created_at"],
             updated_at=row["updated_at"]

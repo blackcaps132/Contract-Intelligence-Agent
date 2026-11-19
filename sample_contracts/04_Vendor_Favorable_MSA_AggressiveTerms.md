@@ -14,7 +14,7 @@ This Commercial Services Agreement is made as of August 15, 2026, by and between
 
 ## SECTION 2. ASYMMETRIC LIMITATION OF LIABILITY (TRAP)
 
-2.1 Vendor Liability Cap: To the maximum extent permitted by law, Vendor's total aggregate liability for ANY and all causes of action, damages, claims, or losses shall be strictly capped at ,000.00 USD or the fees paid in the single preceding calendar month, whichever is lower.
+2.1 Vendor Liability Cap: To the maximum extent permitted by law, Vendor's total aggregate liability for ANY and all causes of action, damages, claims, or losses shall be strictly capped at $5,000.00 USD or the fees paid in the single preceding calendar month, whichever is lower.
 
 2.2 Customer Liability: Customer's liability under this Agreement shall be UNLIMITED and UNCAPPED for all breaches, defaults, or indemnification obligations.
 

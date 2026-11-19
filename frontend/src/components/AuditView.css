@@ -158,6 +158,31 @@
   overflow: hidden;
 }
 
+.intake-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+}
+
+.intake-card-header .card-section-title {
+  padding: 0;
+  border-bottom: none;
+}
+
+.intake-card-tag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-muted);
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-color);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.02em;
+}
+
 .card-section-title {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
@@ -183,7 +208,7 @@
   padding: var(--space-4) var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   border-right: 1px solid var(--border-color);
 }
 
@@ -192,18 +217,82 @@
 }
 
 .intake-label {
-  font-size: var(--font-size-xs);
+  font-size: 11px;
   font-weight: var(--font-weight-medium);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .intake-value {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+  line-height: 1.4;
   word-break: break-word;
+}
+
+.intake-subtext {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.3;
+}
+
+.intake-badge-wrapper {
+  margin-top: 1px;
+}
+
+.intake-cap-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.01em;
+}
+
+.cap-pill-green {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.cap-pill-blue {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.cap-pill-amber {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.intake-briefing-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px var(--space-5);
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.5;
+  background-color: #f8fafc;
+}
+
+.intake-briefing-callout .briefing-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.intake-briefing-callout .briefing-text {
+  flex: 1;
 }
 
 .intake-summary-text {
