@@ -16,7 +16,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "IT Services Statement of Work: Cloud Migration",
         "counterparty": "Contoso Tech Solutions LLC / Apex Cloud Consulting",
         "contract_type": "Statement of Work (SOW)",
-        "status": "Active",
+        "status": "Pending Review",
         "description": "Enterprise cloud containerization, rate cards ($95/hr dev, $145/hr arch), and $150k budget ceiling."
     },
     {
@@ -25,7 +25,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Statement of Work: Digital Marketing Growth Services",
         "counterparty": "BrightWave Retail Inc. / Horizon Media Agency LLC",
         "contract_type": "Statement of Work (SOW)",
-        "status": "Under Review",
+        "status": "Needs Changes",
         "description": "Growth campaign SOW with hourly billing. Flawed: missing Not-to-Exceed budget cap."
     },
     {
@@ -34,7 +34,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Enterprise Master Services Agreement",
         "counterparty": "Global FinTech Dynamics Corp / Meridian Enterprise Solutions Inc.",
         "contract_type": "Master Services Agreement (MSA)",
-        "status": "Active",
+        "status": "Pending Review",
         "description": "Balanced enterprise master agreement with mutual indemnity, Delaware jurisdiction, and 12-month liability cap."
     },
     {
@@ -43,7 +43,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Commercial Services & Logistics Agreement",
         "counterparty": "OmniLogistics Corp / Titan Infrastructure Partners LLC",
         "contract_type": "Master Services Agreement (MSA)",
-        "status": "Action Required",
+        "status": "Needs Changes",
         "description": "High-risk contract: uncapped customer liability, $5k vendor cap, 90-day postal evergreen renewal."
     },
     {
@@ -52,7 +52,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Enterprise SaaS Subscription Agreement & SLA",
         "counterparty": "NexaHealth Systems Inc. / CloudPulse Technologies Inc.",
         "contract_type": "SaaS Subscription Agreement",
-        "status": "Active",
+        "status": "Pending Review",
         "description": "$75k annual subscription, 99.9% uptime SLA with tiered service credits, and 60-day renewal notice."
     },
     {
@@ -61,7 +61,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Mutual Non-Disclosure Agreement (MNDA)",
         "counterparty": "Quantum AI Labs Inc. / Vertex Robotics Inc.",
         "contract_type": "Non-Disclosure Agreement (NDA)",
-        "status": "Executed",
+        "status": "Pending Review",
         "description": "Standard bilateral NDA, 1-year disclosure period, 3-year confidentiality survival term, New York law."
     },
     {
@@ -70,7 +70,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Data Privacy & Security Processing Addendum (DPA)",
         "counterparty": "Acme Global E-Commerce LLC / SwiftData Cloud Storage Ltd.",
         "contract_type": "Data Processing Addendum (DPA)",
-        "status": "Active",
+        "status": "Pending Review",
         "description": "GDPR/CCPA compliance addendum with 72-hour mandatory breach notification and annual audit rights."
     },
     {
@@ -78,8 +78,8 @@ SAMPLE_CONTRACT_CATALOG = [
         "file": "SEC_Verizon_Enterprise_Service_Agreement_Real.txt",
         "title": "Verizon Enterprise Services Agreement (SEC EDGAR EX-10.4)",
         "counterparty": "Verizon ABS LLC / Commercial Counterparties",
-        "contract_type": "Master Services Agreement (MSA)",
-        "status": "Benchmark SEC Filing",
+        "contract_type": "SEC EDGAR Master Agreement",
+        "status": "Pending Review",
         "description": "Authentic 65-page SEC EDGAR Form 8-K enterprise service agreement with complex tiered billing schedules."
     },
     {
@@ -87,8 +87,8 @@ SAMPLE_CONTRACT_CATALOG = [
         "file": "SEC_NICE_Systems_Outsourcing_Agreement_Real.txt",
         "title": "NICE Systems Enterprise IT Outsourcing Agreement (SEC EX-4.5)",
         "counterparty": "NICE Systems Ltd / Enterprise Clients",
-        "contract_type": "IT Outsourcing Agreement",
-        "status": "Benchmark SEC Filing",
+        "contract_type": "SEC EDGAR Outsourcing Agreement",
+        "status": "Pending Review",
         "description": "Authentic 35-page SEC EDGAR cross-border technology outsourcing agreement with service level matrices."
     },
     {
@@ -96,8 +96,8 @@ SAMPLE_CONTRACT_CATALOG = [
         "file": "SEC_Zebra_Technologies_Intellectual_Property_Agreement_Real.txt",
         "title": "Zebra Technologies Intellectual Property Agreement (SEC EX-10.1)",
         "counterparty": "Zebra Technologies Corp / Motorola Solutions Inc.",
-        "contract_type": "Intellectual Property Agreement",
-        "status": "Benchmark SEC Filing",
+        "contract_type": "SEC EDGAR IP Agreement",
+        "status": "Pending Review",
         "description": "Authentic 30-page SEC EDGAR patent cross-licensing and proprietary technology transfer agreement."
     }
 ]

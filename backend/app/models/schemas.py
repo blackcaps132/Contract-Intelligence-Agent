@@ -43,10 +43,10 @@ class ContractListItem(BaseModel):
     counterparty: str
     contract_type: str
     current_version: str
-    status: str
-    checklist_score: str
-    created_at: str
-    updated_at: str
+    status: str = Field("Pending Review", description="Review status: 'Pending Review', 'Needs Changes', or 'Completed'")
+    checklist_score: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 class ContractDetailResponse(BaseModel):
     id: str
@@ -54,14 +54,14 @@ class ContractDetailResponse(BaseModel):
     counterparty: str
     contract_type: str
     current_version: str
-    status: str
-    checklist_score: str
-    checklist_items: List[ChecklistItem]
-    risk_flags: List[RiskFlag]
-    metadata: ContractMetadata
+    status: str = Field("Pending Review", description="Review status: 'Pending Review', 'Needs Changes', or 'Completed'")
+    checklist_score: Optional[str] = "Pending Analysis"
+    checklist_items: List[ChecklistItem] = []
+    risk_flags: List[RiskFlag] = []
+    metadata: ContractMetadata = ContractMetadata()
     content: str
-    created_at: str
-    updated_at: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 # --- Phase 3: Q&A & Conflict Simulator Schemas ---
 class QARequest(BaseModel):

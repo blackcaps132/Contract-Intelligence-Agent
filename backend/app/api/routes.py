@@ -252,7 +252,7 @@ async def upload_contract(
         cursor = conn.cursor()
         cursor.execute("""
         INSERT INTO contracts (id, title, counterparty, contract_type, current_version, status, metadata_json)
-        VALUES (?, ?, ?, ?, 'v1.0', 'Active', ?)
+        VALUES (?, ?, ?, ?, 'v1.0', 'Pending Review', ?)
         """, (contract_id, doc_title, doc_counterparty, contract_type, json.dumps(metadata)))
 
         version_id = f"ver_init_{contract_id[:8]}_{uuid.uuid4().hex[:6]}"

@@ -11,3 +11,5 @@ chroma_db/
 backend/data/chroma_db/
 node_modules/
 frontend/node_modules/
+dist/
+frontend/dist/
