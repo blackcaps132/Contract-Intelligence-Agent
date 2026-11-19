@@ -15,3 +15,29 @@ class AnalysisGraphState(TypedDict):
     risk_flags: List[Dict[str, Any]]
     executive_summary: str
     error: Optional[str]
+
+class QAConflictGraphState(TypedDict):
+    """LangGraph state schema for Vector RAG Q&A and What-If Conflict Simulator."""
+    contract_id: str
+    user_query: str
+    query_type: str                  # "QUESTION" or "PROPOSED_CHANGE"
+    retrieved_chunks: List[Dict[str, Any]]
+    answer: str
+    citations: List[Dict[str, Any]]
+    conflict_report: Optional[Dict[str, Any]]
+
+class AmendmentGraphState(TypedDict):
+    """LangGraph state schema for Smart Modifications & Redline Version Control."""
+    contract_id: str
+    instruction: str
+    author_name: str
+    commit_message: Optional[str]
+    proposal_id: str
+    summary_of_changes: str
+    diffs: List[Dict[str, Any]]
+    proposed_version: str
+    proposed_content: str
+    warnings: List[str]
+    approved: bool
+    version_id: Optional[str]
+    error: Optional[str]

@@ -62,3 +62,101 @@ class ContractDetailResponse(BaseModel):
     content: str
     created_at: str
     updated_at: str
+
+# --- Phase 3: Q&A & Conflict Simulator Schemas ---
+class QARequest(BaseModel):
+    query: str = Field(..., description="User question or proposed contract modification")
+
+class Citation(BaseModel):
+    section: str
+    snippet: str
+    relevance: float
+
+class ConflictItem(BaseModel):
+    section_ref: str
+    conflicting_text: str
+    explanation: str
+    severity: str
+
+class ConflictReport(BaseModel):
+    status: str # "CONFLICT_DETECTED" or "CLEAN_CHANGE"
+    severity: str # "HIGH", "MEDIUM", "NONE"
+    proposed_change: str
+    conflict_count: int
+    conflicts: List[ConflictItem]
+    recommendations: List[str]
+    analyzed_clauses: List[str]
+
+class QAResponse(BaseModel):
+    contract_id: str
+    query: str
+    query_type: str # "QUESTION" or "PROPOSED_CHANGE"
+    answer: str
+    citations: List[Citation]
+    conflict_report: Optional[ConflictReport] = None
+
+# --- Phase 4: Smart Modifications & Git-Style Versioning Schemas ---
+
+class ClauseDiff(BaseModel):
+    section_number: str
+    section_title: str
+    before_text: str
+    after_text: str
+    diff_html: str = ""
+    rationale: str
+
+class AmendmentProposalRequest(BaseModel):
+    instruction: str = Field(..., description="Natural language amendment request (e.g. 'Increase senior dev rate to $120 and NTE budget to $195k')")
+    author_name: Optional[str] = "Legal Counsel"
+
+class AmendmentProposalResponse(BaseModel):
+    contract_id: str
+    proposal_id: str
+    instruction: str
+    summary_of_changes: str
+    diffs: List[ClauseDiff]
+    proposed_version: str # e.g. "v1.1"
+    proposed_content: str
+    warnings: List[str] = []
+
+class CommitRequest(BaseModel):
+    proposal_id: Optional[str] = None
+    author_name: str = "Legal Counsel"
+    commit_message: str
+    updated_content: str
+    diffs: List[ClauseDiff] = []
+    changelog_summary: Optional[str] = ""
+
+class CommitResponse(BaseModel):
+    contract_id: str
+    version_id: str
+    version_tag: str
+    author_name: str
+    commit_message: str
+    changelog_summary: str
+    diffs_count: int
+    created_at: str
+
+class VersionDiffRecord(BaseModel):
+    id: str
+    section_number: str
+    section_title: str
+    before_text: str
+    after_text: str
+    rationale: str
+
+class VersionHistoryItem(BaseModel):
+    version_id: str
+    contract_id: str
+    version_tag: str
+    author_name: str
+    commit_message: str
+    changelog_summary: str
+    created_at: str
+    is_current: bool = False
+    diffs: List[VersionDiffRecord] = []
+
+class RollbackRequest(BaseModel):
+    target_version_id: str
+    author_name: Optional[str] = "Legal Counsel"
+    reason: Optional[str] = "Rollback to previous approved state"

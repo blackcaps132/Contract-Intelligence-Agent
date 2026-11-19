@@ -1,5 +1,6 @@
 Implementation_Plan.md
 MVP_Approach_Plan.md
+CHANGES_NEEDED.md
 .venv/
 __pycache__/
 *.pyc
@@ -8,3 +9,5 @@ __pycache__/
 backend/.env
 chroma_db/
 backend/data/chroma_db/
+node_modules/
+frontend/node_modules/
