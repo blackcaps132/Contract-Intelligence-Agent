@@ -2,35 +2,52 @@ import React, { useState, useEffect } from 'react'
 import Header from './components/Header'
 import HomePage from './pages/HomePage'
 import ContractsPage from './pages/ContractsPage'
+import ContractViewerPage from './pages/ContractViewerPage'
+
+function parseRouteState() {
+  const hash = window.location.hash.replace('#', '').trim()
+  const path = window.location.pathname
+  const combined = hash || (path.startsWith('/') ? path.slice(1) : path)
+  const parts = combined.split('/').filter(Boolean)
+
+  if (parts[0] === 'contracts' && parts[1]) {
+    return {
+      route: 'contract-detail',
+      contractId: parts[1],
+      tab: parts[2] || 'read',
+    }
+  }
+  if (parts[0] === 'contracts') {
+    return { route: 'contracts', contractId: null, tab: 'read' }
+  }
+  return { route: 'home', contractId: null, tab: 'read' }
+}
 
 export default function App() {
-  const [currentRoute, setCurrentRoute] = useState(() => {
-    const path = window.location.pathname
-    const hash = window.location.hash.replace('#', '').trim()
-    if (path.startsWith('/contracts') || hash === 'contracts') {
-      return 'contracts'
-    }
-    return 'home'
-  })
+  const [routeState, setRouteState] = useState(parseRouteState)
 
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname
-      const hash = window.location.hash.replace('#', '').trim()
-      if (path.startsWith('/contracts') || hash === 'contracts') {
-        setCurrentRoute('contracts')
-      } else {
-        setCurrentRoute('home')
-      }
+      setRouteState(parseRouteState())
     }
     window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
+    window.addEventListener('hashchange', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('hashchange', handlePopState)
+    }
   }, [])
 
-  const handleNavigate = (route) => {
-    setCurrentRoute(route)
+  const navigateTo = (route) => {
     const targetUrl = route === 'home' ? '/' : '#contracts'
     window.history.pushState({}, '', targetUrl)
+    setRouteState({ route, contractId: null, tab: 'read' })
+  }
+
+  const navigateToContract = (contractId, tab = 'read') => {
+    const targetUrl = `#contracts/${contractId}/${tab}`
+    window.history.pushState({}, '', targetUrl)
+    setRouteState({ route: 'contract-detail', contractId, tab })
   }
 
   const handleOpenIngest = () => {
@@ -38,25 +55,38 @@ export default function App() {
     console.info('[Ingest] Ingest modal triggered')
   }
 
+  // Determine active header navigation link
+  const activeHeaderNav =
+    routeState.route === 'contract-detail' || routeState.route === 'contracts'
+      ? 'contracts'
+      : 'home'
+
   return (
     <div className="app-shell">
-      <Header 
-        currentRoute={currentRoute} 
-        onNavigate={handleNavigate} 
-        onOpenIngest={handleOpenIngest} 
+      <Header
+        currentRoute={activeHeaderNav}
+        onNavigate={navigateTo}
+        onOpenIngest={handleOpenIngest}
       />
-      {currentRoute === 'home' && (
-        <HomePage 
-          onNavigate={handleNavigate} 
-          onSelectContract={(id) => handleNavigate('contracts')} 
+
+      {routeState.route === 'home' && (
+        <HomePage
+          onNavigate={navigateTo}
+          onSelectContract={(id) => navigateToContract(id, 'read')}
         />
       )}
-      {currentRoute === 'contracts' && (
-        <ContractsPage 
-          onSelectContract={(contractId, tab = 'read') => {
-            console.info(`[App] Contract selected: ${contractId}, tab: ${tab}`)
-            // In Step 4, this transitions to the Contract Reader room
-          }} 
+
+      {routeState.route === 'contracts' && (
+        <ContractsPage
+          onSelectContract={(id, tab) => navigateToContract(id, tab || 'read')}
+        />
+      )}
+
+      {routeState.route === 'contract-detail' && (
+        <ContractViewerPage
+          contractId={routeState.contractId}
+          initialTab={routeState.tab}
+          onBack={() => navigateTo('contracts')}
         />
       )}
     </div>
