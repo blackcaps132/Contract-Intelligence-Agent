@@ -2,14 +2,27 @@ import re
 from typing import Dict, Any, List
 from app.services.vector_service import query_contract_clauses
 from app.config import GEMINI_API_KEY, DEFAULT_MODEL
+from app.services.llm_service import generate_conflict_simulation
 
 def simulate_cross_clause_conflict(contract_id: str, proposed_change: str) -> Dict[str, Any]:
     """
     Simulates a contemplated contract change against the full document.
     Detects cross-clause contradictions, financial cap breaches, and schedule misalignments.
+    Uses Gemini LLM for deep reasoning, falling back to deterministic heuristics.
     """
     # 1. Retrieve all related clauses from ChromaDB
     relevant_chunks = query_contract_clauses(contract_id, proposed_change, top_k=5)
+    
+    # 2. Try Gemini LLM first if available
+    if GEMINI_API_KEY and relevant_chunks:
+        try:
+            llm_report = generate_conflict_simulation(proposed_change, relevant_chunks, contract_title=contract_id)
+            if llm_report and "status" in llm_report:
+                return llm_report
+        except Exception as e:
+            # Fall back to deterministic rules on exception
+            pass
+
     combined_context = "\n\n".join([f"[{c['section_title']}]: {c['text']}" for c in relevant_chunks])
     
     conflicts = []

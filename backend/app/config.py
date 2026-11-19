@@ -5,16 +5,18 @@ from dotenv import load_dotenv
 # Base backend directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load .env file from backend/.env or root .env
-if (BASE_DIR / ".env").exists():
-    load_dotenv(BASE_DIR / ".env")
-elif (BASE_DIR.parent / ".env").exists():
+# Load .env file from backend/.env and root .env
+if (BASE_DIR.parent / ".env").exists():
     load_dotenv(BASE_DIR.parent / ".env")
+if (BASE_DIR / ".env").exists():
+    load_dotenv(BASE_DIR / ".env", override=False)
+if not os.getenv("GEMINI_API_KEY") and (BASE_DIR.parent / ".env").exists():
+    load_dotenv(BASE_DIR.parent / ".env", override=True)
 
 # LLM Keys & Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-2.5-flash")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-3.5-flash-lite")
 DEFAULT_TEMPERATURE = float(os.getenv("DEFAULT_TEMPERATURE", "0.1"))
 
 # Vector DB & Embeddings
