@@ -97,6 +97,34 @@ class QAResponse(BaseModel):
     citations: List[Citation]
     conflict_report: Optional[ConflictReport] = None
 
+# --- Chat Sessions & Conversation History Schemas ---
+
+class ChatSessionItem(BaseModel):
+    session_id: str
+    contract_id: str
+    title: str
+    created_at: str
+    updated_at: str
+    message_count: int = 0
+
+class CreateSessionRequest(BaseModel):
+    title: Optional[str] = "New Conversation"
+
+class StoredChatMessage(BaseModel):
+    id: str
+    session_id: str
+    sender: str
+    text: str
+    query_type: Optional[str] = "QUESTION"
+    is_simulation: bool = False
+    citations: List[Dict[str, Any]] = []
+    conflict_report: Optional[Dict[str, Any]] = None
+    created_at: str
+
+class ChatSessionDetailResponse(BaseModel):
+    session: ChatSessionItem
+    messages: List[StoredChatMessage]
+
 # --- Phase 4: Smart Modifications & Git-Style Versioning Schemas ---
 
 class ClauseDiff(BaseModel):

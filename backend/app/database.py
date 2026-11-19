@@ -78,6 +78,33 @@ def init_db():
             FOREIGN KEY (version_id) REFERENCES contract_versions (version_id) ON DELETE CASCADE
         );
         """)
+
+        # 4. Chat sessions table (multi-thread conversation history)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            session_id TEXT PRIMARY KEY,
+            contract_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contract_id) REFERENCES contracts (id) ON DELETE CASCADE
+        );
+        """)
+
+        # 5. Chat messages table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            sender TEXT NOT NULL,
+            text TEXT NOT NULL,
+            query_type TEXT DEFAULT 'QUESTION',
+            citations_json TEXT DEFAULT '[]',
+            conflict_report_json TEXT DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES chat_sessions (session_id) ON DELETE CASCADE
+        );
+        """)
         
         conn.commit()
 

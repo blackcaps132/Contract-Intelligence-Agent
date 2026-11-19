@@ -1,5 +1,6 @@
 import json
 import uuid
+import re
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Response
 from fastapi.responses import FileResponse, StreamingResponse
@@ -18,6 +19,10 @@ from app.models.schemas import (
     Citation,
     ConflictReport,
     ConflictItem,
+    ChatSessionItem,
+    CreateSessionRequest,
+    StoredChatMessage,
+    ChatSessionDetailResponse,
     AmendmentProposalRequest,
     AmendmentProposalResponse,
     CommitRequest,
@@ -215,6 +220,255 @@ def simulate_conflict(contract_id: str, request: QARequest):
         recommendations=report["recommendations"],
         analyzed_clauses=report["analyzed_clauses"]
     )
+
+# --- Chat Session & Multi-Conversation Persistence Endpoints ---
+
+def generate_smart_title(query: str) -> str:
+    """Derives a concise, professional title from the user's initial inquiry."""
+    q_low = query.lower()
+    if "rate" in q_low or "hourly" in q_low:
+        return "Resource Hourly Rates"
+    if "termination" in q_low or "notice" in q_low or "deadline" in q_low:
+        return "Termination & Notice Windows"
+    if "budget" in q_low or "cap" in q_low or "ceiling" in q_low or "nte" in q_low:
+        return "Budget Cap & NTE Limits"
+    if "liability" in q_low or "indemn" in q_low:
+        return "Liability & Indemnification"
+    if "net 60" in q_low or "net 30" in q_low or "payment" in q_low:
+        return "Payment Terms Simulation"
+    cleaned = re.sub(r"^(what\s+if\s+|what\s+are\s+|can\s+we\s+|does\s+this\s+)", "", query, flags=re.I).strip()
+    cleaned = cleaned.rstrip("?.! ")
+    if len(cleaned) > 36:
+        cleaned = cleaned[:33] + "..."
+    return cleaned.capitalize() or "Contract Discussion"
+
+@router.get("/{contract_id}/chat/sessions", response_model=List[ChatSessionItem])
+def get_chat_sessions(contract_id: str):
+    """Lists all historical conversation threads for this contract ordered by recent activity."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT s.session_id, s.contract_id, s.title, s.created_at, s.updated_at,
+                   COUNT(m.id) as message_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.session_id = m.session_id
+            WHERE s.contract_id = ?
+            GROUP BY s.session_id
+            ORDER BY s.updated_at DESC
+        """, (contract_id,))
+        rows = cursor.fetchall()
+        return [
+            ChatSessionItem(
+                session_id=r["session_id"],
+                contract_id=r["contract_id"],
+                title=r["title"],
+                created_at=str(r["created_at"]),
+                updated_at=str(r["updated_at"]),
+                message_count=r["message_count"]
+            )
+            for r in rows
+        ]
+
+@router.post("/{contract_id}/chat/sessions", response_model=ChatSessionItem)
+def create_chat_session(contract_id: str, body: Optional[CreateSessionRequest] = None):
+    """Creates a new empty chat conversation session."""
+    session_id = f"sess_{uuid.uuid4().hex[:12]}"
+    title = body.title if (body and body.title) else "New Conversation"
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM contracts WHERE id = ?", (contract_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Contract not found")
+        cursor.execute("""
+            INSERT INTO chat_sessions (session_id, contract_id, title)
+            VALUES (?, ?, ?)
+        """, (session_id, contract_id, title))
+        conn.commit()
+        cursor.execute("SELECT * FROM chat_sessions WHERE session_id = ?", (session_id,))
+        r = cursor.fetchone()
+        return ChatSessionItem(
+            session_id=r["session_id"],
+            contract_id=r["contract_id"],
+            title=r["title"],
+            created_at=str(r["created_at"]),
+            updated_at=str(r["updated_at"]),
+            message_count=0
+        )
+
+@router.get("/{contract_id}/chat/sessions/{session_id}", response_model=ChatSessionDetailResponse)
+def get_chat_session_detail(contract_id: str, session_id: str):
+    """Retrieves a specific chat session with its full message history."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT s.session_id, s.contract_id, s.title, s.created_at, s.updated_at,
+                   COUNT(m.id) as message_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.session_id = m.session_id
+            WHERE s.session_id = ? AND s.contract_id = ?
+            GROUP BY s.session_id
+        """, (session_id, contract_id))
+        s_row = cursor.fetchone()
+        if not s_row:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+
+        cursor.execute("""
+            SELECT * FROM chat_messages
+            WHERE session_id = ?
+            ORDER BY created_at ASC, id ASC
+        """, (session_id,))
+        m_rows = cursor.fetchall()
+
+        messages = []
+        for m in m_rows:
+            citations_data = []
+            if m["citations_json"]:
+                try:
+                    citations_data = json.loads(m["citations_json"])
+                except Exception:
+                    pass
+            conflict_data = None
+            if m["conflict_report_json"]:
+                try:
+                    conflict_data = json.loads(m["conflict_report_json"])
+                except Exception:
+                    pass
+
+            messages.append(
+                StoredChatMessage(
+                    id=m["id"],
+                    session_id=m["session_id"],
+                    sender=m["sender"],
+                    text=m["text"],
+                    query_type=m["query_type"] or "QUESTION",
+                    is_simulation=(m["query_type"] == "PROPOSED_CHANGE"),
+                    citations=citations_data,
+                    conflict_report=conflict_data,
+                    created_at=str(m["created_at"])
+                )
+            )
+
+        session_item = ChatSessionItem(
+            session_id=s_row["session_id"],
+            contract_id=s_row["contract_id"],
+            title=s_row["title"],
+            created_at=str(s_row["created_at"]),
+            updated_at=str(s_row["updated_at"]),
+            message_count=s_row["message_count"]
+        )
+
+        return ChatSessionDetailResponse(
+            session=session_item,
+            messages=messages
+        )
+
+@router.post("/{contract_id}/chat/sessions/{session_id}/message")
+def post_chat_message(contract_id: str, session_id: str, request: QARequest):
+    """
+    Submits a query within a specific chat session.
+    Persists user query, executes LangGraph + Gemini analysis, persists agent answer,
+    and updates session title and timestamp.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT session_id, title FROM chat_sessions WHERE session_id = ? AND contract_id = ?", (session_id, contract_id))
+        session_row = cursor.fetchone()
+        
+        # If session does not exist, create it automatically
+        if not session_row:
+            cursor.execute("""
+                INSERT INTO chat_sessions (session_id, contract_id, title)
+                VALUES (?, ?, ?)
+            """, (session_id, contract_id, "New Conversation"))
+            session_title = "New Conversation"
+        else:
+            session_title = session_row["title"]
+
+        # 1. Store user message
+        user_msg_id = f"usr_{uuid.uuid4().hex[:10]}"
+        is_change = bool(re.search(r"change|modify|what if|conflict|raise|increase|switch to|update|amend", request.query, re.I))
+        q_type_hint = "PROPOSED_CHANGE" if is_change else "QUESTION"
+
+        cursor.execute("""
+            INSERT INTO chat_messages (id, session_id, sender, text, query_type)
+            VALUES (?, ?, 'user', ?, ?)
+        """, (user_msg_id, session_id, request.query, q_type_hint))
+
+        # 2. Run LangGraph QA & Conflict Agent
+        initial_state = {
+            "contract_id": contract_id,
+            "user_query": request.query,
+            "query_type": "",
+            "retrieved_chunks": [],
+            "answer": "",
+            "citations": [],
+            "conflict_report": None
+        }
+        final_state = qa_conflict_agent.invoke(initial_state)
+
+        # 3. Store agent message
+        agent_msg_id = f"agent_{uuid.uuid4().hex[:10]}"
+        citations_json = json.dumps(final_state.get("citations", []))
+        conflict_report_json = json.dumps(final_state.get("conflict_report")) if final_state.get("conflict_report") else None
+
+        cursor.execute("""
+            INSERT INTO chat_messages (id, session_id, sender, text, query_type, citations_json, conflict_report_json)
+            VALUES (?, ?, 'agent', ?, ?, ?, ?)
+        """, (
+            agent_msg_id,
+            session_id,
+            final_state["answer"],
+            final_state["query_type"],
+            citations_json,
+            conflict_report_json
+        ))
+
+        # 4. If session title is default, update with smart title
+        if session_title in ["New Conversation", "New Chat", ""]:
+            session_title = generate_smart_title(request.query)
+
+        cursor.execute("""
+            UPDATE chat_sessions
+            SET title = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE session_id = ?
+        """, (session_title, session_id))
+
+        conn.commit()
+
+        return {
+            "session_id": session_id,
+            "session_title": session_title,
+            "user_message": {
+                "id": user_msg_id,
+                "session_id": session_id,
+                "sender": "user",
+                "text": request.query,
+                "is_simulation": final_state["query_type"] == "PROPOSED_CHANGE",
+                "timestamp": "Just now"
+            },
+            "agent_message": {
+                "id": agent_msg_id,
+                "session_id": session_id,
+                "sender": "agent",
+                "text": final_state["answer"],
+                "query_type": final_state["query_type"],
+                "is_simulation": final_state["query_type"] == "PROPOSED_CHANGE",
+                "citations": final_state.get("citations", []),
+                "conflict_report": final_state.get("conflict_report"),
+                "timestamp": "Just now"
+            }
+        }
+
+@router.delete("/{contract_id}/chat/sessions/{session_id}")
+def delete_chat_session(contract_id: str, session_id: str):
+    """Deletes a chat session and all its associated messages."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        cursor.execute("DELETE FROM chat_sessions WHERE session_id = ? AND contract_id = ?", (session_id, contract_id))
+        conn.commit()
+        return {"status": "success", "deleted_session_id": session_id}
+
 
 @router.post("/reindex")
 def reindex_all_contracts():
