@@ -14,6 +14,7 @@ class AnalysisGraphState(TypedDict):
     checklist_score: str            # e.g., "6/6 Passed (100%)"
     risk_flags: List[Dict[str, Any]]
     executive_summary: str
+    status: Optional[str]
     error: Optional[str]
 
 class QAConflictGraphState(TypedDict):

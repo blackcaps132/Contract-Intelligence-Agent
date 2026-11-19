@@ -292,9 +292,15 @@ def scan_risk_flags_node(state: AnalysisGraphState) -> Dict[str, Any]:
 def persist_analysis_node(state: AnalysisGraphState) -> Dict[str, Any]:
     contract_id = state["contract_id"]
     checklist_score = state.get("checklist_score", "0/6 Passed")
-    checklist_json = json.dumps(state.get("checklist_items", []))
-    risk_flags_json = json.dumps(state.get("risk_flags", []))
+    checklist_items = state.get("checklist_items", [])
+    risk_flags = state.get("risk_flags", [])
+    checklist_json = json.dumps(checklist_items)
+    risk_flags_json = json.dumps(risk_flags)
     metadata_json = json.dumps(state.get("metadata", {}))
+
+    # Review-centric status update
+    has_issues = len(risk_flags) > 0 or any(i.get("status") in ("MISSING", "AMBIGUOUS") for i in checklist_items)
+    new_status = "Needs Changes" if has_issues else "Completed"
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -304,9 +310,10 @@ def persist_analysis_node(state: AnalysisGraphState) -> Dict[str, Any]:
             checklist_json = ?,
             risk_flags_json = ?,
             metadata_json = ?,
+            status = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-        """, (checklist_score, checklist_json, risk_flags_json, metadata_json, contract_id))
+        """, (checklist_score, checklist_json, risk_flags_json, metadata_json, new_status, contract_id))
         conn.commit()
 
     exec_summary = (
@@ -315,7 +322,7 @@ def persist_analysis_node(state: AnalysisGraphState) -> Dict[str, Any]:
         f"Flagged {len(state.get('risk_flags', []))} potential legal/commercial risk items."
     )
 
-    return {"executive_summary": exec_summary}
+    return {"executive_summary": exec_summary, "status": new_status}
 
 # --- BUILD THE LANGGRAPH WORKFLOW ---
 def build_analysis_graph():

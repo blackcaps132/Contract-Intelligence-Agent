@@ -135,6 +135,7 @@ def analyze_contract(contract_id: str):
         title=final_state["title"],
         contract_type=final_state["metadata"].get("contract_type", final_state["contract_type"]),
         current_version=row["current_version"],
+        status=final_state.get("status", "Completed"),
         checklist_score=final_state["checklist_score"],
         checklist_items=checklist_items,
         risk_flags=risk_flags,

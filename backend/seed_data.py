@@ -25,7 +25,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Statement of Work: Digital Marketing Growth Services",
         "counterparty": "BrightWave Retail Inc. / Horizon Media Agency LLC",
         "contract_type": "Statement of Work (SOW)",
-        "status": "Needs Changes",
+        "status": "Pending Review",
         "description": "Growth campaign SOW with hourly billing. Flawed: missing Not-to-Exceed budget cap."
     },
     {
@@ -43,7 +43,7 @@ SAMPLE_CONTRACT_CATALOG = [
         "title": "Commercial Services & Logistics Agreement",
         "counterparty": "OmniLogistics Corp / Titan Infrastructure Partners LLC",
         "contract_type": "Master Services Agreement (MSA)",
-        "status": "Needs Changes",
+        "status": "Pending Review",
         "description": "High-risk contract: uncapped customer liability, $5k vendor cap, 90-day postal evergreen renewal."
     },
     {

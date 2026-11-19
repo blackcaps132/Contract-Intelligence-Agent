@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import AuditView from '../components/AuditView'
 import './ContractViewerPage.css'
 
 const TABS = [
@@ -14,6 +15,14 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState(initialTab)
+  const [remediationDraft, setRemediationDraft] = useState('')
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab)
+    if (contractId) {
+      window.history.replaceState({}, '', `#contracts/${contractId}/${newTab}`)
+    }
+  }
 
   // In-document search state
   const [docSearch, setDocSearch] = useState('')
@@ -396,7 +405,7 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
               key={tab.id}
               type="button"
               className={`viewer-tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
             >
               {tab.label}
             </button>
@@ -491,19 +500,29 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
         </div>
       </section>
 
-      {/* Tab: Audit (Step 5 Shell) */}
+      {/* Tab: Audit (Dedicated Compliance Review) */}
       {activeTab === 'audit' && (
-        <div className="tab-placeholder screen-only-tab">
-          <div className="placeholder-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-          </div>
-          <h2 className="placeholder-title">Audit & Mandatory Checklist</h2>
-          <p className="placeholder-desc">
-            Executes on-demand verification against mandatory checklist criteria and scans for high-risk clauses. Ready for Step 5.
-          </p>
+        <div className="screen-only-tab">
+          <AuditView
+            contract={contract}
+            onContractUpdate={(updatedData) => {
+              setContract((prev) => ({
+                ...prev,
+                ...updatedData,
+                // Ensure status and checklist items update parent view
+                status: updatedData.status || prev.status,
+                checklist_score: updatedData.checklist_score,
+                checklist_items: updatedData.checklist_items,
+                risk_flags: updatedData.risk_flags,
+                metadata: updatedData.metadata,
+                executive_summary: updatedData.executive_summary,
+              }))
+            }}
+            onNavigateToAmend={(remediationText) => {
+              setRemediationDraft(remediationText)
+              handleTabChange('amend')
+            }}
+          />
         </div>
       )}
 
@@ -535,6 +554,16 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
           <p className="placeholder-desc">
             Natural-language drafting, visual diffs, and mandatory counsel approval before commit. Ready for Step 7.
           </p>
+          {remediationDraft && (
+            <div style={{ marginTop: '16px', maxWidth: '640px', width: '100%', textAlign: 'left', background: 'var(--bg-canvas)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Auto-Remediation Draft Queued:
+              </div>
+              <pre style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
+                {remediationDraft}
+              </pre>
+            </div>
+          )}
         </div>
       )}
 

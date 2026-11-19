@@ -31,6 +31,7 @@ class AnalysisResponse(BaseModel):
     title: str
     contract_type: str
     current_version: str
+    status: str = "Pending Review"
     checklist_score: str # e.g. "5/6 Passed (83%)"
     checklist_items: List[ChecklistItem]
     risk_flags: List[RiskFlag]
