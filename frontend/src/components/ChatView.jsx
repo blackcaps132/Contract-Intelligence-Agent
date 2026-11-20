@@ -6,8 +6,8 @@ const PRESET_INQUIRIES = [
   { label: 'Termination Notice', query: 'What is the notice deadline for termination or non-renewal?', isSimulation: false },
   { label: 'Liability Limits & Caps', query: 'What are the liability caps, damages limitations, and indemnity terms?', isSimulation: false },
   { label: 'Not-to-Exceed Budget Cap', query: 'Does this contract include an explicit budget ceiling or Not-to-Exceed cap?', isSimulation: false },
-  { label: 'What if: Net 60 Terms', query: 'What if I change payment terms from Net 30 to Net 60? Will it cause any conflicts?', isSimulation: true },
-  { label: 'What if: Increase Dev Rate', query: 'What if we increase the developer rate to $120/hr? Does it conflict with the budget cap?', isSimulation: true },
+  { label: 'Net 60 Terms', query: 'What if I change payment terms from Net 30 to Net 60? Will it cause any conflicts?', isSimulation: true },
+  { label: 'Increase Dev Rate', query: 'What if we increase the developer rate to $120/hr? Does it conflict with the budget cap?', isSimulation: true },
 ]
 
 /**
@@ -181,15 +181,22 @@ export default function ChatView({ contract, onNavigateToAmend }) {
   const [loading, setLoading] = useState(false)
   const [expandedCitations, setExpandedCitations] = useState({})
 
-  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const inputRef = useRef(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const scrollToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      })
+    }
   }
 
   useEffect(() => {
-    scrollToBottom()
+    if (messages.length > 0 || loading) {
+      scrollToBottom()
+    }
   }, [messages, loading])
 
   // Load chat sessions on mount or when contract changes
@@ -249,7 +256,7 @@ export default function ChatView({ contract, onNavigateToAmend }) {
     setActiveSessionTitle('New Conversation')
     setMessages([])
     setInputQuery('')
-    setTimeout(() => inputRef.current?.focus(), 80)
+    setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 80)
   }
 
   const handleDeleteSession = async (e, sessionId) => {
@@ -366,7 +373,7 @@ export default function ChatView({ contract, onNavigateToAmend }) {
       setMessages((prev) => [...prev, errorMsg])
     } finally {
       setLoading(false)
-      setTimeout(() => inputRef.current?.focus(), 100)
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100)
     }
   }
 
@@ -472,39 +479,26 @@ export default function ChatView({ contract, onNavigateToAmend }) {
           MAIN CHAT AREA: Q&A, What-If Simulation, and Active Message Stream
           ========================================================================= */}
       <main className="chat-main-area">
-        {/* 1. Header with Collapse Toggle & Active Title */}
+        {/* 1. Sleek, minimal chat header */}
         <div className="chat-header">
-          <div className="chat-header-info">
-            <div className="chat-title-row">
-              <button
-                type="button"
-                className="btn-toggle-sidebar"
-                onClick={() => setSidebarCollapsed((prev) => !prev)}
-                title={sidebarCollapsed ? 'Show conversation history' : 'Hide conversation history'}
-                aria-label="Toggle sidebar"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <line x1="9" y1="3" x2="9" y2="21" />
-                </svg>
-              </button>
-
-              <h2 className="chat-header-title">
-                {activeSessionId ? activeSessionTitle : 'Document Intelligence & Conflict Simulator'}
-              </h2>
-
-              <span className="copilot-ai-badge">
-                <span className="badge-pulse-dot" />
-                <span>Gemini Intelligence</span>
-              </span>
-            </div>
-            <p className="chat-header-subtitle">
-              Deeply grounded legal analysis with cross-clause contradiction simulation across all contract provisions
-            </p>
-          </div>
+          <button
+            type="button"
+            className="btn-toggle-sidebar"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            title={sidebarCollapsed ? 'Show conversation history' : 'Hide conversation history'}
+            aria-label="Toggle sidebar"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
+          </button>
+          <span className="chat-header-title">
+            {activeSessionId ? activeSessionTitle : 'New Chat'}
+          </span>
         </div>
 
-        {/* 2. Preset Inquiries Bar */}
+        {/* 2. Preset Inquiries Bar (One row, neutral chips) */}
         <div className="chat-presets-bar">
           <span className="presets-label">Quick Inquiries:</span>
           <div className="presets-scroll">
@@ -512,20 +506,13 @@ export default function ChatView({ contract, onNavigateToAmend }) {
               <button
                 key={idx}
                 type="button"
-                className={`preset-chip ${preset.isSimulation ? 'chip-simulation' : ''}`}
+                className="preset-chip"
                 onClick={() => handleSendMessage(preset.query)}
                 disabled={loading}
                 title={preset.query}
               >
-                {preset.isSimulation ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="2" x2="16.65" y2="16.65" />
-                  </svg>
+                {preset.isSimulation && (
+                  <span className="chip-whatif-badge">What if</span>
                 )}
                 <span>{preset.label}</span>
               </button>
@@ -534,37 +521,18 @@ export default function ChatView({ contract, onNavigateToAmend }) {
         </div>
 
         {/* 3. Messages Stream */}
-        <div className="chat-messages-area" role="log" aria-live="polite">
+        <div className="chat-messages-area" ref={messagesContainerRef} role="log" aria-live="polite">
           {messages.length === 0 ? (
             <div className="chat-empty-state">
               <div className="empty-state-avatar">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
               </div>
               <h3 className="empty-state-title">New Conversation</h3>
               <p className="empty-state-desc">
-                Ask specific legal questions about compensation rates, termination notice periods, or liability carve-outs.
-                Or test a <strong>What-If scenario</strong> to simulate cross-clause contradictions before amending terms.
+                Ask specific legal questions about rates, notice windows, or liability, or test a what-if scenario to simulate cross-clause contradictions.
               </p>
-              <div className="empty-state-suggestions">
-                <button
-                  type="button"
-                  className="suggestion-pill"
-                  onClick={() => handleSendMessage('What are the resource hourly rates defined in this contract?')}
-                >
-                  "What are the resource hourly rates?"
-                </button>
-                <button
-                  type="button"
-                  className="suggestion-pill"
-                  onClick={() => handleSendMessage('What if I change payment terms from Net 30 to Net 60? Will it cause any conflicts?')}
-                >
-                  "What if: Change to Net 60?"
-                </button>
-              </div>
             </div>
           ) : (
             messages.map((msg) => (
@@ -765,7 +733,6 @@ export default function ChatView({ contract, onNavigateToAmend }) {
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* 4. Chat Input Bar */}
