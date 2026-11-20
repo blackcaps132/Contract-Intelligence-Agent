@@ -6,38 +6,111 @@ from typing import List, Dict, Any, Tuple, Optional
 
 from app.database import get_db
 from app.services.conflict_service import simulate_cross_clause_conflict
+from app.services.llm_service import generate_contract_amendment_llm
+
+def compute_sentence_and_split_diff_html(before: str, after: str) -> Tuple[str, str, str]:
+    """
+    Computes clean sentence/line-level diffs:
+    1. diff_html: inline redline where entire deleted sentences are in <del> and inserted in <ins>.
+    2. before_html: side-by-side left column, highlighting removed/changed sentences in soft red.
+    3. after_html: side-by-side right column, highlighting added/changed sentences in soft green.
+    """
+    if not before:
+        clean_after = after.strip()
+        diff_html = f'<ins class="diff-ins diff-ins-sentence">{clean_after}</ins>'
+        before_html = '<span class="diff-empty-notice">[Clause Did Not Exist in Prior Version]</span>'
+        after_html = f'<div class="split-sentence-added"><span class="split-indicator">+</span> {clean_after}</div>'
+        return diff_html, before_html, after_html
+
+    if not after:
+        clean_before = before.strip()
+        diff_html = f'<del class="diff-del diff-del-sentence">{clean_before}</del>'
+        before_html = f'<div class="split-sentence-removed"><span class="split-indicator">−</span> {clean_before}</div>'
+        after_html = '<span class="diff-empty-notice">[Clause Removed in Proposed Version]</span>'
+        return diff_html, before_html, after_html
+
+    def tokenize_by_lines_and_sentences(text: str) -> List[str]:
+        lines = text.split('\n')
+        tokens = []
+        for line in lines:
+            if not line.strip():
+                tokens.append('\n')
+                continue
+            sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z0-9•\-])', line)
+            for i, s in enumerate(sentences):
+                if i > 0:
+                    tokens.append(' ')
+                tokens.append(s)
+            tokens.append('\n')
+        if tokens and tokens[-1] == '\n':
+            tokens.pop()
+        return tokens
+
+    b_toks = tokenize_by_lines_and_sentences(before)
+    a_toks = tokenize_by_lines_and_sentences(after)
+
+    matcher = difflib.SequenceMatcher(None, b_toks, a_toks)
+    opcodes = matcher.get_opcodes()
+
+    # Merge consecutive changes separated by whitespace
+    merged_ops = []
+    for tag, i1, i2, j1, j2 in opcodes:
+        if not merged_ops:
+            merged_ops.append([tag, i1, i2, j1, j2])
+            continue
+        prev_tag = merged_ops[-1][0]
+        if tag in ('delete', 'insert', 'replace') and prev_tag in ('delete', 'insert', 'replace'):
+            merged_ops[-1][0] = 'replace'
+            merged_ops[-1][2] = i2
+            merged_ops[-1][4] = j2
+        elif tag == 'equal':
+            eq_text = "".join(b_toks[i1:i2])
+            if not eq_text.strip() and prev_tag in ('delete', 'insert', 'replace'):
+                merged_ops[-1][0] = 'replace'
+                merged_ops[-1][2] = i2
+                merged_ops[-1][4] = j2
+            else:
+                merged_ops.append([tag, i1, i2, j1, j2])
+        else:
+            merged_ops.append([tag, i1, i2, j1, j2])
+
+    diff_parts = []
+    before_parts = []
+    after_parts = []
+
+    for tag, i1, i2, j1, j2 in merged_ops:
+        if tag == 'equal':
+            eq_b = "".join(b_toks[i1:i2])
+            eq_a = "".join(a_toks[j1:j2])
+            diff_parts.append(eq_b)
+            before_parts.append(eq_b)
+            after_parts.append(eq_a)
+        elif tag == 'delete':
+            del_text = "".join(b_toks[i1:i2]).strip()
+            if del_text:
+                diff_parts.append(f'<del class="diff-del diff-del-sentence">{del_text}</del>\n\n')
+                before_parts.append(f'<div class="split-sentence-removed"><span class="split-indicator">−</span> {del_text}</div>\n\n')
+        elif tag == 'insert':
+            ins_text = "".join(a_toks[j1:j2]).strip()
+            if ins_text:
+                diff_parts.append(f'<ins class="diff-ins diff-ins-sentence">{ins_text}</ins>\n\n')
+                after_parts.append(f'<div class="split-sentence-added"><span class="split-indicator">+</span> {ins_text}</div>\n\n')
+        elif tag == 'replace':
+            del_text = "".join(b_toks[i1:i2]).strip()
+            ins_text = "".join(a_toks[j1:j2]).strip()
+            if del_text:
+                diff_parts.append(f'<del class="diff-del diff-del-sentence">{del_text}</del>\n\n')
+                before_parts.append(f'<div class="split-sentence-removed"><span class="split-indicator">−</span> {del_text}</div>\n\n')
+            if ins_text:
+                diff_parts.append(f'<ins class="diff-ins diff-ins-sentence">{ins_text}</ins>\n\n')
+                after_parts.append(f'<div class="split-sentence-added"><span class="split-indicator">+</span> {ins_text}</div>\n\n')
+
+    return "".join(diff_parts), "".join(before_parts), "".join(after_parts)
 
 def compute_word_diff_html(before: str, after: str) -> str:
-    """Generates an inline HTML redline diff with colored additions and strikethroughs."""
-    before_tokens = re.findall(r'\S+|\s+', before)
-    after_tokens = re.findall(r'\S+|\s+', after)
-    matcher = difflib.SequenceMatcher(None, before_tokens, after_tokens)
-    
-    html_parts = []
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == 'equal':
-            html_parts.append("".join(before_tokens[i1:i2]))
-        elif tag == 'delete':
-            del_text = "".join(before_tokens[i1:i2])
-            html_parts.append(
-                f'<del class="diff-del" style="background-color: #fee2e2; color: #b91c1c; text-decoration: line-through; padding: 2px 4px; border-radius: 3px; font-weight: 500;">{del_text}</del>'
-            )
-        elif tag == 'insert':
-            ins_text = "".join(after_tokens[j1:j2])
-            html_parts.append(
-                f'<ins class="diff-ins" style="background-color: #dcfce7; color: #15803d; text-decoration: none; font-weight: 700; padding: 2px 4px; border-radius: 3px;">{ins_text}</ins>'
-            )
-        elif tag == 'replace':
-            del_text = "".join(before_tokens[i1:i2])
-            ins_text = "".join(after_tokens[j1:j2])
-            html_parts.append(
-                f'<del class="diff-del" style="background-color: #fee2e2; color: #b91c1c; text-decoration: line-through; padding: 2px 4px; border-radius: 3px; font-weight: 500;">{del_text}</del> '
-            )
-            html_parts.append(
-                f'<ins class="diff-ins" style="background-color: #dcfce7; color: #15803d; text-decoration: none; font-weight: 700; padding: 2px 4px; border-radius: 3px;">{ins_text}</ins>'
-            )
-            
-    return "".join(html_parts)
+    """Backward compatible wrapper returning sentence-level diff_html."""
+    d, _, _ = compute_sentence_and_split_diff_html(before, after)
+    return d
 
 def get_next_version_tag(current_tag: str) -> str:
     """Increments a version tag like v1.0 -> v1.1 or v1.9 -> v2.0."""
@@ -120,27 +193,94 @@ def propose_contract_amendment(contract_id: str, instruction: str) -> Dict[str, 
         for conf in conflict_report["conflicts"]:
             warnings.append(f"⚠️ Warning: Contradicts {conf['section_ref']} - {conf['explanation']}")
 
+    # 1. Try Gemini LLM for smart contextual drafting
+    try:
+        llm_amendment = generate_contract_amendment_llm(content, instruction, contract_title=row["title"])
+        if llm_amendment and llm_amendment.get("modifications"):
+            llm_diffs = []
+            working_content = content
+            llm_warnings = list(warnings) + llm_amendment.get("warnings", [])
+            for mod in llm_amendment["modifications"]:
+                orig = mod.get("original_text", "").strip()
+                amended = mod.get("amended_text", "").strip()
+                sec_num = mod.get("section_number", "Section")
+                sec_title = mod.get("section_title", "Modified Clause")
+                rationale = mod.get("rationale", "Updated clause per instruction.")
+
+                if orig and orig in working_content:
+                    working_content = working_content.replace(orig, amended, 1)
+                    diff_html, before_html, after_html = compute_sentence_and_split_diff_html(orig, amended)
+                    llm_diffs.append({
+                        "section_number": sec_num,
+                        "section_title": sec_title,
+                        "before_text": orig,
+                        "after_text": amended,
+                        "diff_html": diff_html,
+                        "before_html": before_html,
+                        "after_html": after_html,
+                        "rationale": rationale
+                    })
+            if llm_diffs:
+                suggested_commit = (llm_amendment.get("commit_message") or "").strip().rstrip(". ")
+                if not suggested_commit or suggested_commit.endswith("..."):
+                    if len(llm_diffs) == 1:
+                        d = llm_diffs[0]
+                        sec = d.get("section_number", "Section")
+                        title = d.get("section_title", "Contract provisions")
+                        suggested_commit = f"{sec}: Update {title.lower()}"
+                    else:
+                        secs = [d.get("section_number", "").replace("Section ", "").strip() for d in llm_diffs if d.get("section_number")]
+                        suggested_commit = f"Sections {', '.join(secs[:3])}: Update contract provisions"
+
+                return {
+                    "contract_id": contract_id,
+                    "proposal_id": proposal_id,
+                    "instruction": instruction,
+                    "summary_of_changes": llm_amendment.get("summary_of_changes", "Amended contract provisions per instruction."),
+                    "suggested_commit_message": suggested_commit,
+                    "diffs": llm_diffs,
+                    "proposed_version": proposed_version,
+                    "proposed_content": working_content,
+                    "warnings": llm_warnings
+                }
+    except Exception:
+        pass
+
     # Pattern 1: Hourly rate modification (e.g. "increase senior dev rate to $120" or "raise developer rate")
-    rate_match = re.search(r'(?:rate|rates).*?\$?(\d+(?:\.\d+)?)|(?:increase|raise|change).*?rate.*?to\s*\$?(\d+(?:\.\d+)?)', lower_inst)
+    rate_match = (
+        re.search(r'\$\s*(\d+(?:\.\d+)?)\s*(?:/\s*hr|per hour|hourly)', lower_inst) or
+        re.search(r'(?:rate|rates|hourly).*?\$?(\d+(?:\.\d+)?)|(?:increase|raise|change).*?rate.*?to\s*\$?(\d+(?:\.\d+)?)', lower_inst)
+    )
     target_rate = None
     if rate_match:
         target_rate = rate_match.group(1) or rate_match.group(2)
 
     # Pattern 2: Budget cap modification (e.g. "budget cap to $195,000" or "NTE to $195k" or "$195,000")
-    budget_match = re.search(r'(?:budget|not-to-exceed|nte|cap).*?\$?(\d+(?:,\d{3})*(?:k)?)', lower_inst)
+    budget_match = (
+        re.search(r'\$\s*(\d+(?:,\d{3})*(?:\.\d+)?(?:k)?)', lower_inst) or
+        re.search(r'(\d+(?:,\d{3})*(?:k)?)\s*(?:dollar|usd|\$)', lower_inst) or
+        re.search(r'(?:budget|not-to-exceed|nte|cap|ceiling)(?:\s+(?:of|to|is|at|limit))?\s*\$?(\d+(?:,\d{3})*(?:k)?)', lower_inst) or
+        re.search(r'(\d+(?:,\d{3})*(?:k)?)\s*(?:budget|cap|ceiling|not-to-exceed|nte)', lower_inst)
+    )
     target_budget_str = None
     target_budget_formatted = None
     if budget_match:
-        raw_b = budget_match.group(1).replace(",", "")
+        raw_b = (budget_match.group(1) or "").replace(",", "")
         if raw_b.endswith('k'):
-            target_budget_num = int(raw_b[:-1]) * 1000
-        else:
+            try:
+                target_budget_num = int(raw_b[:-1]) * 1000
+                target_budget_formatted = f"${target_budget_num:,}"
+            except ValueError:
+                pass
+        elif raw_b.isdigit():
             target_budget_num = int(raw_b)
-        target_budget_formatted = f"${target_budget_num:,}"
+            target_budget_formatted = f"${target_budget_num:,}"
 
     # Pattern 3: Payment terms modification (e.g. "Net 60" or "Net 45")
-    net_match = re.search(r'net\s*(\d+)', lower_inst)
-    target_net_days = net_match.group(1) if net_match else None
+    net_match = re.search(r'net\s*(?:thirty|forty-five|sixty|\d+)?\s*\(?(\d+)\)?|net\s*(\d+)', lower_inst)
+    target_net_days = None
+    if net_match:
+        target_net_days = net_match.group(1) or net_match.group(2)
 
     # Pattern 4: Termination notice modification (e.g. "termination notice to 15 days" or "30 days")
     term_notice_match = re.search(r'(?:termination|notice|cancel).*?(\d+)\s*days?', lower_inst)
@@ -218,15 +358,15 @@ def propose_contract_amendment(contract_id: str, instruction: str) -> Dict[str, 
         # Check for Payment Terms modifications (Net 30 -> Net 60)
         if target_net_days and any(k in (sec_num + " " + sec_title).lower() for k in ["payment", "invoice", "fee", "billing"]):
             new_after = re.sub(
-                r'Net\s*\d+',
+                r'Net\s*(?:thirty|forty-five|sixty|\w+)?\s*(?:\(\d+\)|\d+)',
                 lambda m: f"Net {target_net_days}",
                 after_sec,
                 flags=re.IGNORECASE
             )
             new_after = re.sub(
-                r'within\s*\d+\s*days?\s*of\s*receipt',
+                r'within\s*(?:thirty|forty-five|sixty|\w+)?\s*(?:\(\d+\)|\d+)\s*days?\s*of\s*receipt',
                 lambda m: f"within {target_net_days} days of receipt",
-                after_sec,
+                new_after,
                 flags=re.IGNORECASE
             )
             if new_after != after_sec:
@@ -274,7 +414,7 @@ def propose_contract_amendment(contract_id: str, instruction: str) -> Dict[str, 
 
         if section_modified:
             modified_any = True
-            diff_html = compute_word_diff_html(before_sec, after_sec)
+            diff_html, before_html, after_html = compute_sentence_and_split_diff_html(before_sec, after_sec)
             rationale_str = " ".join(rationale_list)
             diffs.append({
                 "section_number": sec_num,
@@ -282,6 +422,8 @@ def propose_contract_amendment(contract_id: str, instruction: str) -> Dict[str, 
                 "before_text": before_sec,
                 "after_text": after_sec,
                 "diff_html": diff_html,
+                "before_html": before_html,
+                "after_html": after_html,
                 "rationale": rationale_str
             })
             changelog_points.append(f"• **{sec_num} ({sec_title})**: {rationale_str}")
@@ -307,7 +449,7 @@ def propose_contract_amendment(contract_id: str, instruction: str) -> Dict[str, 
                 break
 
         updated_sections.insert(insert_idx, inserted_text)
-        diff_html = compute_word_diff_html("", inserted_text)
+        diff_html, before_html, after_html = compute_sentence_and_split_diff_html("", inserted_text)
         rationale_str = f"Inserted mandatory Not-to-Exceed budget ceiling clause ({target_budget_formatted}) to satisfy Checklist requirements."
         
         diffs.append({
@@ -316,10 +458,34 @@ def propose_contract_amendment(contract_id: str, instruction: str) -> Dict[str, 
             "before_text": "[Clause Did Not Exist - Missing]",
             "after_text": inserted_text,
             "diff_html": diff_html,
+            "before_html": before_html,
+            "after_html": after_html,
             "rationale": rationale_str
         })
         changelog_points.append(f"• **{inserted_sec_num} ({inserted_sec_title})**: {rationale_str}")
         modified_any = True
+
+    suggested_commit = ""
+    if diffs:
+        if len(diffs) == 1:
+            d = diffs[0]
+            sec = d.get("section_number", "Section")
+            rat = d.get("rationale", "").lower()
+            if "budget" in rat:
+                suggested_commit = f"{sec}: Add {target_budget_formatted or '$195k'} Not-to-Exceed budget cap"
+            elif "termination" in rat or "notice" in rat:
+                suggested_commit = f"{sec}: Extend termination notice to {target_notice_days or 30} days"
+            elif "jurisdiction" in rat or "governing" in rat:
+                suggested_commit = f"{sec}: Update governing law to State of {target_jurisdiction or 'Delaware'}"
+            elif "rate" in rat:
+                suggested_commit = f"{sec}: Update hourly rate card"
+            else:
+                suggested_commit = f"{sec}: Update {d.get('section_title', 'terms')}"
+        else:
+            secs = [d.get("section_number", "").replace("Section ", "").strip() for d in diffs if d.get("section_number")]
+            suggested_commit = f"Sections {', '.join(secs[:3])}: Update contract provisions"
+    else:
+        suggested_commit = f"Amend contract to {proposed_version}"
 
     # Fallback if no specific regex matched: LLM-like general modification
     if not modified_any:
@@ -334,6 +500,7 @@ def propose_contract_amendment(contract_id: str, instruction: str) -> Dict[str, 
         "contract_id": contract_id,
         "proposal_id": proposal_id,
         "instruction": instruction,
+        "suggested_commit_message": suggested_commit,
         "summary_of_changes": summary_of_changes,
         "diffs": diffs,
         "proposed_version": proposed_version,

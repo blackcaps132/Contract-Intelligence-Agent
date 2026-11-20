@@ -22,6 +22,7 @@ def draft_proposal_node(state: AmendmentGraphState) -> Dict[str, Any]:
         return {
             "proposal_id": proposal["proposal_id"],
             "summary_of_changes": proposal["summary_of_changes"],
+            "suggested_commit_message": proposal.get("suggested_commit_message", ""),
             "diffs": proposal["diffs"],
             "proposed_version": proposal["proposed_version"],
             "proposed_content": proposal["proposed_content"],

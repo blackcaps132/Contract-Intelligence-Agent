@@ -33,6 +33,7 @@ class AmendmentGraphState(TypedDict):
     instruction: str
     author_name: str
     commit_message: Optional[str]
+    suggested_commit_message: Optional[str]
     proposal_id: str
     summary_of_changes: str
     diffs: List[Dict[str, Any]]

@@ -133,6 +133,8 @@ class ClauseDiff(BaseModel):
     before_text: str
     after_text: str
     diff_html: str = ""
+    before_html: Optional[str] = ""
+    after_html: Optional[str] = ""
     rationale: str
 
 class AmendmentProposalRequest(BaseModel):
@@ -144,6 +146,7 @@ class AmendmentProposalResponse(BaseModel):
     proposal_id: str
     instruction: str
     summary_of_changes: str
+    suggested_commit_message: Optional[str] = ""
     diffs: List[ClauseDiff]
     proposed_version: str # e.g. "v1.1"
     proposed_content: str

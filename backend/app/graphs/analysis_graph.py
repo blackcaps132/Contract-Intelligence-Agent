@@ -40,6 +40,56 @@ STANDARD_REMEDIATIONS = {
     )
 }
 
+SECTION_KEYWORDS = {
+    "Explicit Budget & Not-to-Exceed Cap": ["budget", "compensation", "invoicing", "payment", "fee", "cap"],
+    "Resource Rate Card & Payment Windows": ["rate", "staffing", "compensation", "pricing", "payment", "invoice"],
+    "Deliverables & Milestone Schedule": ["deliverable", "milestone", "service", "scope"],
+    "IP Ownership & Work-Made-for-Hire": ["intellectual property", "ip", "ownership", "proprietary", "work product"],
+    "Termination & Written Notice Period": ["termination", "term", "cancellation", "default"],
+    "Designated Governing Law & Venue": ["governing law", "jurisdiction", "dispute", "miscellaneous", "general"]
+}
+
+def get_resolved_remediation_clause(item_name: str, contract_text: str) -> str:
+    """
+    Dynamically determines the exact section number for remediation:
+    - If a matching topical section exists in the contract, re-uses that section number.
+    - If no matching section exists, assigns N+1 as a new section.
+    """
+    template = STANDARD_REMEDIATIONS.get(item_name, "SECTION [X]. STANDARD PROVISION\nStandard terms.")
+    
+    # Extract existing numbered section headers (e.g. SECTION 1, ## SECTION 2, ARTICLE 3)
+    sec_matches = re.findall(
+        r'^(?:#+\s*)?(?:SECTION|ARTICLE)\s*(\d+)[:.\-\s]+([^\n\r]+)',
+        contract_text,
+        re.MULTILINE | re.IGNORECASE
+    )
+    
+    existing_sections = []
+    existing_nums = []
+    for num_str, title in sec_matches:
+        try:
+            n = int(num_str)
+            existing_nums.append(n)
+            existing_sections.append((n, title.strip()))
+        except ValueError:
+            pass
+            
+    max_num = max(existing_nums) if existing_nums else 0
+    next_num = max_num + 1 if max_num > 0 else 1
+    
+    keywords = SECTION_KEYWORDS.get(item_name, [])
+    found_num = None
+    for n, title in existing_sections:
+        if any(kw in title.lower() for kw in keywords):
+            found_num = n
+            break
+            
+    target_num = found_num if found_num is not None else next_num
+    
+    resolved = template.replace("[X]", str(target_num))
+    resolved = resolved.replace("[Amount]", "195,000")
+    return resolved
+
 # --- NODE 1: Parse Sections ---
 def parse_sections_node(state: AnalysisGraphState) -> Dict[str, Any]:
     raw_content = state.get("raw_content", "")
@@ -150,7 +200,7 @@ def verify_mandatory_checklist_node(state: AnalysisGraphState) -> Dict[str, Any]
             "found_text": no_cap_pattern.group(0) if no_cap_pattern else "",
             "clause_ref": "Missing in Invoicing/Budget Section",
             "details": "CRITICAL: No budget cap or cost ceiling found. Work is billed without financial limitation.",
-            "remediation_clause": STANDARD_REMEDIATIONS["Explicit Budget & Not-to-Exceed Cap"]
+            "remediation_clause": get_resolved_remediation_clause("Explicit Budget & Not-to-Exceed Cap", text)
         })
 
     # 2. Rate Card & Payment Windows
@@ -171,7 +221,7 @@ def verify_mandatory_checklist_node(state: AnalysisGraphState) -> Dict[str, Any]
             "found_text": "",
             "clause_ref": "Payment Section",
             "details": "Missing explicit resource rate card or clear Net payment terms.",
-            "remediation_clause": STANDARD_REMEDIATIONS["Resource Rate Card & Payment Windows"]
+            "remediation_clause": get_resolved_remediation_clause("Resource Rate Card & Payment Windows", text)
         })
 
     # 3. Deliverables & Milestones
@@ -192,7 +242,7 @@ def verify_mandatory_checklist_node(state: AnalysisGraphState) -> Dict[str, Any]
             "found_text": "",
             "clause_ref": "Scope Section",
             "details": "Scope lacks specific milestone deliverables and acceptance timelines.",
-            "remediation_clause": STANDARD_REMEDIATIONS["Deliverables & Milestone Schedule"]
+            "remediation_clause": get_resolved_remediation_clause("Deliverables & Milestone Schedule", text)
         })
 
     # 4. IP Ownership / Work-Made-for-Hire
@@ -213,18 +263,36 @@ def verify_mandatory_checklist_node(state: AnalysisGraphState) -> Dict[str, Any]
             "found_text": "",
             "clause_ref": "IP Section",
             "details": "No Work-Made-for-Hire or IP assignment language found. Vendor may retain software rights.",
-            "remediation_clause": STANDARD_REMEDIATIONS["IP Ownership & Work-Made-for-Hire"]
+            "remediation_clause": get_resolved_remediation_clause("IP Ownership & Work-Made-for-Hire", text)
         })
 
     # 5. Termination & Written Notice
-    term_pattern = re.search(r"(termination\s+for\s+convenience|upon\s+\d+\s+days\s+prior\s+written\s+notice|written\s+notice\s+of\s+non-renewal)", text, re.IGNORECASE)
-    if term_pattern:
+    notice_match = re.search(
+        r"(\d+|thirty|sixty|ninety|fifteen|twenty|forty-five|forty five)\s*(?:\(\d+\))?\s*days\s+(?:prior\s+)?written\s+notice",
+        text,
+        re.IGNORECASE
+    )
+    term_pattern = re.search(
+        r"(termination\s+for\s+convenience|"
+        r"terminate\s+(?:this\s+agreement\s+)?(?:at\s+any\s+time|with\s+or\s+without\s+cause)|"
+        r"with\s+or\s+without\s+cause|"
+        r"upon\s+(?:\d+|[a-zA-Z]+(?:\s*\(\d+\))?)\s+days\s+(?:prior\s+)?written\s+notice|"
+        r"(?:\d+|[a-zA-Z]+(?:\s*\(\d+\))?)\s+days\s+(?:prior\s+)?written\s+notice|"
+        r"written\s+notice\s+of\s+(?:termination|non-renewal|cancellation)|"
+        r"termination\s+upon\s+(?:\d+|[a-zA-Z]+(?:\s*\(\d+\))?)\s+days|"
+        r"either\s+party\s+may\s+terminate)",
+        text,
+        re.IGNORECASE
+    )
+    if term_pattern or notice_match:
+        matched_text = notice_match.group(0) if notice_match else term_pattern.group(0)
+        notice_desc = f" ({notice_match.group(0)})" if notice_match else ""
         checklist_items.append({
             "name": "Termination & Written Notice Period",
             "status": "PASSED",
-            "found_text": term_pattern.group(0),
+            "found_text": f'"{matched_text}"',
             "clause_ref": "Termination Section",
-            "details": "Explicit termination rights with defined written notice period.",
+            "details": f"Explicit termination rights with defined written notice period{notice_desc}.",
             "remediation_clause": None
         })
     else:
@@ -234,7 +302,7 @@ def verify_mandatory_checklist_node(state: AnalysisGraphState) -> Dict[str, Any]
             "found_text": "",
             "clause_ref": "Termination Section",
             "details": "Missing explicit convenience termination notice terms.",
-            "remediation_clause": STANDARD_REMEDIATIONS["Termination & Written Notice Period"]
+            "remediation_clause": get_resolved_remediation_clause("Termination & Written Notice Period", text)
         })
 
     # 6. Designated Governing Law
@@ -255,7 +323,7 @@ def verify_mandatory_checklist_node(state: AnalysisGraphState) -> Dict[str, Any]
             "found_text": "",
             "clause_ref": "General Provisions",
             "details": "No governing jurisdiction specified. Increases litigation venue risk.",
-            "remediation_clause": STANDARD_REMEDIATIONS["Designated Governing Law & Venue"]
+            "remediation_clause": get_resolved_remediation_clause("Designated Governing Law & Venue", text)
         })
 
     passed_count = sum(1 for item in checklist_items if item["status"] == "PASSED")

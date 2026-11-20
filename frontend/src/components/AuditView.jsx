@@ -1,6 +1,49 @@
 import React, { useState } from 'react'
 import './AuditView.css'
 
+const SECTION_KEYWORDS = {
+  'Explicit Budget & Not-to-Exceed Cap': ['budget', 'compensation', 'invoicing', 'payment', 'fee', 'cap'],
+  'Resource Rate Card & Payment Windows': ['rate', 'staffing', 'compensation', 'pricing', 'payment', 'invoice'],
+  'Deliverables & Milestone Schedule': ['deliverable', 'milestone', 'service', 'scope'],
+  'IP Ownership & Work-Made-for-Hire': ['intellectual property', 'ip', 'ownership', 'proprietary', 'work product'],
+  'Termination & Written Notice Period': ['termination', 'term', 'cancellation', 'default'],
+  'Designated Governing Law & Venue': ['governing law', 'jurisdiction', 'dispute', 'miscellaneous', 'general'],
+}
+
+function resolveSectionPlaceholder(rawText, contractContent, itemName) {
+  if (!rawText) return `Please remediate and insert standard clause for: ${itemName}`
+  if (!rawText.includes('[X]') && !rawText.includes('[x]')) return rawText
+
+  const lines = (contractContent || '').split('\n')
+  const secRegex = /^(?:#+\s*)?(?:SECTION|ARTICLE)\s*(\d+)[:.\-\s]+([^\n\r]+)/i
+  const existingSections = []
+
+  lines.forEach((line) => {
+    const match = line.trim().match(secRegex)
+    if (match) {
+      existingSections.push({
+        num: parseInt(match[1], 10),
+        title: match[2].trim(),
+      })
+    }
+  })
+
+  const maxNum = existingSections.length > 0
+    ? Math.max(...existingSections.map((s) => s.num))
+    : 0
+  const nextNum = maxNum > 0 ? maxNum + 1 : 1
+
+  const keywords = SECTION_KEYWORDS[itemName] || []
+  const found = existingSections.find((s) =>
+    keywords.some((kw) => s.title.toLowerCase().includes(kw))
+  )
+
+  const resolvedNum = found ? found.num : nextNum
+  let resolved = rawText.replace(/\[X\]/gi, String(resolvedNum))
+  resolved = resolved.replace(/\[Amount\]/gi, '195,000')
+  return resolved
+}
+
 export default function AuditView({ contract, onContractUpdate, onNavigateToAmend }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState(null)
@@ -47,9 +90,10 @@ export default function AuditView({ contract, onContractUpdate, onNavigateToAmen
   }
 
   const handleAutoRemediate = (item) => {
-    const remediationText =
+    const rawText =
       item.remediation_clause ||
       `Please remediate and insert standard clause for: ${item.name}`
+    const remediationText = resolveSectionPlaceholder(rawText, contract?.content, item.name)
     if (onNavigateToAmend) {
       onNavigateToAmend(remediationText)
     }

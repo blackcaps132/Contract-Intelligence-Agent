@@ -578,6 +578,8 @@ def propose_amendment(contract_id: str, request: AmendmentProposalRequest):
             before_text=d["before_text"],
             after_text=d["after_text"],
             diff_html=d.get("diff_html", ""),
+            before_html=d.get("before_html", ""),
+            after_html=d.get("after_html", ""),
             rationale=d["rationale"]
         )
         for d in final_state["diffs"]
@@ -588,6 +590,7 @@ def propose_amendment(contract_id: str, request: AmendmentProposalRequest):
         proposal_id=final_state["proposal_id"],
         instruction=request.instruction,
         summary_of_changes=final_state["summary_of_changes"],
+        suggested_commit_message=final_state.get("suggested_commit_message", ""),
         diffs=diff_objects,
         proposed_version=final_state["proposed_version"],
         proposed_content=final_state["proposed_content"],

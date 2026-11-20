@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import AuditView from '../components/AuditView'
 import ChatView from '../components/ChatView'
+import AmendView from '../components/AmendView'
 import './ContractViewerPage.css'
 
 const TABS = [
@@ -579,29 +580,16 @@ export default function ContractViewerPage({ contractId, initialTab = 'read', on
         </div>
       )}
 
-      {/* Tab: Amend (Step 7 Shell) */}
+      {/* Tab: Amend (Step 7 Redline Studio with Approval Gate) */}
       {activeTab === 'amend' && (
-        <div className="tab-placeholder screen-only-tab">
-          <div className="placeholder-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
-          </div>
-          <h2 className="placeholder-title">Redline Studio with Approval Gate</h2>
-          <p className="placeholder-desc">
-            Natural-language drafting, visual diffs, and mandatory counsel approval before commit. Ready for Step 7.
-          </p>
-          {remediationDraft && (
-            <div style={{ marginTop: '16px', maxWidth: '640px', width: '100%', textAlign: 'left', background: 'var(--bg-canvas)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Auto-Remediation Draft Queued:
-              </div>
-              <pre style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
-                {remediationDraft}
-              </pre>
-            </div>
-          )}
+        <div className="screen-only-tab">
+          <AmendView
+            contract={contract}
+            initialInstruction={remediationDraft}
+            onClearRemediationDraft={() => setRemediationDraft('')}
+            onContractUpdate={(updated) => setContract(updated)}
+            onNavigateToTab={(tab) => handleTabChange(tab)}
+          />
         </div>
       )}
 

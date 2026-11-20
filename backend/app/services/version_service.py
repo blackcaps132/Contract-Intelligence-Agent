@@ -87,6 +87,28 @@ def commit_contract_version(
     except Exception as e:
         print(f"Warning: ChromaDB reindex failed for {contract_id}: {e}")
 
+    # 6. Automatically re-analyze contract to synchronize checklist & compliance status
+    try:
+        from app.graphs.analysis_graph import analysis_agent
+        analysis_state = {
+            "contract_id": contract_id,
+            "raw_content": updated_content,
+            "file_type": "text",
+            "title": contract["title"],
+            "counterparty": contract["counterparty"] if "counterparty" in contract.keys() else "",
+            "contract_type": contract["contract_type"] if "contract_type" in contract.keys() else "Commercial Agreement",
+            "sections": {},
+            "metadata": {},
+            "checklist_items": [],
+            "checklist_score": "",
+            "risk_flags": [],
+            "executive_summary": "",
+            "error": None
+        }
+        analysis_agent.invoke(analysis_state)
+    except Exception as e:
+        print(f"Warning: Auto-analysis failed after commit for {contract_id}: {e}")
+
     return {
         "contract_id": contract_id,
         "version_id": version_id,

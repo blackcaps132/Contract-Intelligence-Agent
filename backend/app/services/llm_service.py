@@ -181,3 +181,69 @@ def generate_conflict_simulation(
     except Exception as e:
         logger.warning(f"Failed to parse LLM conflict response as JSON: {e}\nRaw: {raw_res[:200]}")
         return None
+
+def generate_contract_amendment_llm(
+    contract_content: str,
+    instruction: str,
+    contract_title: str = ""
+) -> Optional[Dict[str, Any]]:
+    """
+    Uses Gemini LLM to draft clause amendments and replacements for any natural-language prompt.
+    Returns structured modifications dict or None on failure.
+    """
+    if not GEMINI_API_KEY:
+        return None
+
+    system_instruction = (
+        "You are an elite legal contract drafting specialist and redline revision expert.\n"
+        "Your task is to analyze an amendment instruction, identify which exact section(s) in the contract "
+        "must be updated, and provide exact before and after text.\n"
+        "Strict Rules:\n"
+        "1. Identify the specific section number and section title to modify.\n"
+        "2. The 'original_text' MUST be an exact verbatim substring from the contract content so it can be cleanly matched and replaced.\n"
+        "3. The 'amended_text' must be the complete, professionally drafted replacement for that exact substring.\n"
+        "4. Provide a clear rationale explaining the legal and commercial intent of the change.\n"
+        "5. Provide a short, concise, and meaningful Git-style commit message under 60 characters describing the substantive legal amendment (e.g. 'Section 5.1: Extend termination notice to 30 days' or 'Section 4.1: Add $195k budget cap'). Never use '...' or truncate words in the commit message.\n"
+        "6. If the change creates contradictions with other provisions, list them in 'warnings'.\n"
+        "7. Respond STRICTLY in valid JSON matching the requested schema."
+    )
+
+    prompt = (
+        f"Contract: {contract_title or 'Governing Agreement'}\n"
+        f"Amendment Instruction: \"{instruction}\"\n\n"
+        f"--- FULL CONTRACT CONTENT ---\n"
+        f"{contract_content[:24000]}\n"
+        f"--- END CONTRACT CONTENT ---\n\n"
+        "Return a strictly valid JSON object with this exact structure:\n"
+        "{\n"
+        '  "commit_message": "Short, concise Git commit message under 60 chars without trailing ellipsis (e.g. Section 5.1: Extend termination notice to 30 days)",\n'
+        '  "summary_of_changes": "Clear executive summary of all proposed modifications",\n'
+        '  "modifications": [\n'
+        "    {\n"
+        '      "section_number": "Section Number (e.g. Section 2.1 or Section 3.2)",\n'
+        '      "section_title": "Section Title (e.g. Rate Card or Invoicing)",\n'
+        '      "original_text": "Exact verbatim excerpt from the contract to replace",\n'
+        '      "amended_text": "Exact replacement text incorporating the requested change",\n'
+        '      "rationale": "Why this specific change was made"\n'
+        "    }\n"
+        "  ],\n"
+        '  "warnings": ["Any contradiction or cross-clause risk warnings"]\n'
+        "}\n"
+        "Output ONLY the JSON object. No Markdown code fences or extra text."
+    )
+
+    raw_res = call_gemini(prompt, system_instruction=system_instruction)
+    if not raw_res:
+        return None
+
+    cleaned_res = re.sub(r"^```(?:json)?\s*", "", raw_res.strip())
+    cleaned_res = re.sub(r"\s*```$", "", cleaned_res.strip())
+
+    try:
+        data = json.loads(cleaned_res)
+        if "modifications" in data and len(data["modifications"]) > 0:
+            return data
+    except Exception as e:
+        logger.warning(f"Failed to parse LLM amendment JSON: {e}\nRaw: {raw_res[:200]}")
+
+    return None
